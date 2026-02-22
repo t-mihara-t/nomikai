@@ -3,8 +3,7 @@ name: Deploy to Cloudflare Pages
 on:
   push:
     branches:
-      - master
-      - claude/drinking-party-settlement-app-CpXHj
+      - main
 
 jobs:
   deploy:
@@ -22,6 +21,14 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Create Cloudflare Pages project
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages project create nomikai --production-branch main
+        continue-on-error: true
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
