@@ -137,6 +137,8 @@ export function RestaurantSearch({ eventId, hasAfterParty, savedVenues, onVenueC
   const [afterPartyLoading, setAfterPartyLoading] = useState(false);
   const [afterPartyError, setAfterPartyError] = useState<string | null>(null);
   const [savingAfterParty, setSavingAfterParty] = useState<string | null>(null);
+  const [afterPartyKeyword, setAfterPartyKeyword] = useState('');
+  const [afterPartyRange, setAfterPartyRange] = useState('3'); // default 1000m
 
   const primaryVenues = savedVenues.filter((v) => v.venue_type === 'primary');
   const afterPartyVenues = savedVenues.filter((v) => v.venue_type === 'after_party');
@@ -220,8 +222,10 @@ export function RestaurantSearch({ eventId, hasAfterParty, savedVenues, onVenueC
       return;
     }
     setSaving(shop.id);
+    setError(null);
     try {
       await api.addVenue(eventId, { venue_type: 'primary', restaurant: shop });
+      // Keep search results visible so user can select a second candidate
       onVenueChange();
     } catch (err) {
       setError(err instanceof Error ? err.message : '保存に失敗しました');
@@ -255,13 +259,16 @@ export function RestaurantSearch({ eventId, hasAfterParty, savedVenues, onVenueC
     setAfterPartyTotal(null);
 
     try {
-      const data = await api.searchRestaurants({
+      const searchParams: Parameters<typeof api.searchRestaurants>[0] = {
         lat: shop.lat,
         lng: shop.lng,
-        range: '2', // 500m以内
-        keyword: '居酒屋 バー',
-        count: 10,
-      });
+        range: afterPartyRange,
+        count: 20,
+      };
+      if (afterPartyKeyword.trim()) {
+        searchParams.keyword = afterPartyKeyword.trim();
+      }
+      const data = await api.searchRestaurants(searchParams);
       // Exclude primary venues
       const primaryIds = new Set(primaryVenues.map((v) => v.restaurant.id));
       const filtered = data.shops.filter((s) => !primaryIds.has(s.id));
@@ -453,27 +460,48 @@ export function RestaurantSearch({ eventId, hasAfterParty, savedVenues, onVenueC
       {hasAfterParty && primaryVenues.length > 0 && (
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">
-                二次会を探す（{primaryVenues[0].restaurant.name}の近く）
-              </CardTitle>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleSearchAfterParty}
-                disabled={afterPartyLoading}
-              >
-                {afterPartyLoading ? '検索中...' : afterPartyResults.length > 0 ? '再検索' : '検索'}
-              </Button>
-            </div>
+            <CardTitle className="text-lg">
+              二次会を探す（{primaryVenues[0].restaurant.name}の近く）
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <Label htmlFor="ap-keyword" className="text-xs">キーワード（任意）</Label>
+                <Input
+                  id="ap-keyword"
+                  placeholder="例: バー、居酒屋"
+                  value={afterPartyKeyword}
+                  onChange={(e) => setAfterPartyKeyword(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="ap-range" className="text-xs">検索範囲</Label>
+                <Select
+                  id="ap-range"
+                  value={afterPartyRange}
+                  onChange={(e) => setAfterPartyRange(e.target.value)}
+                >
+                  {RANGE_OPTIONS.filter((o) => o.value !== '').map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </Select>
+              </div>
+            </div>
+            <Button
+              onClick={handleSearchAfterParty}
+              disabled={afterPartyLoading}
+              className="w-full"
+            >
+              {afterPartyLoading ? '検索中...' : afterPartyResults.length > 0 ? '再検索' : '二次会候補を検索'}
+            </Button>
             {afterPartyError && (
               <p className="text-sm text-destructive">{afterPartyError}</p>
             )}
             {afterPartyTotal !== null && !afterPartyLoading && (
               <p className="text-sm text-muted-foreground">
-                一次会会場から500m以内: {afterPartyTotal}件中 {afterPartyResults.length}件を表示
+                一次会会場の近く: {afterPartyTotal}件中 {afterPartyResults.length}件を表示
+                {afterPartyResults.length === 0 && ' - 検索範囲を広げるか、キーワードを変更してみてください'}
               </p>
             )}
             {afterPartyResults.length > 0 && (

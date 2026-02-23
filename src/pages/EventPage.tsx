@@ -1,9 +1,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useEventDetail, useCalculate } from '@/hooks/useEventData';
+import { useEventDetail } from '@/hooks/useEventData';
 import { api } from '@/lib/api';
-import { ParticipantList } from '@/components/ParticipantList';
-import { AdminPanel } from '@/components/AdminPanel';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -28,7 +26,6 @@ export function EventPage() {
   const navigate = useNavigate();
   const eventId = id ? parseInt(id, 10) : null;
   const { event, loading, error, refetch } = useEventDetail(eventId);
-  const { calculate, loading: calcLoading } = useCalculate();
   const [copied, setCopied] = useState(false);
   const [newDateTime, setNewDateTime] = useState('');
   const [addingDate, setAddingDate] = useState(false);
@@ -40,9 +37,6 @@ export function EventPage() {
   // PayPay ID
   const [editPaypay, setEditPaypay] = useState(false);
   const [paypayId, setPaypayId] = useState('');
-
-  // Settlement email
-  const [settlementCopied, setSettlementCopied] = useState(false);
 
   if (loading) {
     return (
@@ -84,36 +78,10 @@ export function EventPage() {
     }
   };
 
-  const handleToggleStatus = async (
-    participantId: number,
-    currentStatus: 'attending' | 'absent' | 'pending'
-  ) => {
-    const nextStatus = currentStatus === 'attending' ? 'absent'
-      : currentStatus === 'absent' ? 'pending'
-      : 'attending';
-    await api.updateParticipant(participantId, { status: nextStatus });
-    await refetch();
-  };
-
-  const handleTogglePaid = async (participantId: number, currentPaid: boolean) => {
-    await api.updateParticipant(participantId, { paid_status: !currentPaid });
-    await refetch();
-  };
-
   const handleDeleteParticipant = async (participantId: number) => {
     if (!confirm('この参加者を削除しますか？')) return;
     await api.deleteParticipant(participantId);
     await refetch();
-  };
-
-  const handleCalculate = async (data: {
-    total_amount: number;
-    drinker_ratio: number;
-    rounding: 'ceil' | 'floor';
-  }) => {
-    const result = await calculate(event.id, data);
-    if (result) await refetch();
-    return result;
   };
 
   const handleToggleAfterParty = async () => {
@@ -142,52 +110,6 @@ export function EventPage() {
     await api.updateEvent(event.id, { paypay_id: paypayId.trim() || undefined });
     setEditPaypay(false);
     await refetch();
-  };
-
-  // Settlement text generation
-  const generateSettlementText = () => {
-    const attending = event.participants.filter((p) => p.status === 'attending');
-    const venueName = primaryVenues.length > 0 ? primaryVenues[0].restaurant.name : '未定';
-    const lines = [
-      `【飲み会精算のお知らせ】`,
-      ``,
-      `${event.name}`,
-      `日時: ${event.date}`,
-      `会場: ${venueName}`,
-      ``,
-    ];
-
-    if (event.total_amount) {
-      lines.push(`合計金額: ${event.total_amount.toLocaleString()}円`);
-      lines.push(`参加者: ${attending.length}名`);
-      lines.push(``);
-
-      const drinkers = attending.filter((p) => p.is_drinker && p.amount_to_pay != null);
-      const nonDrinkers = attending.filter((p) => !p.is_drinker && p.amount_to_pay != null);
-
-      if (drinkers.length > 0 && drinkers[0].amount_to_pay != null) {
-        lines.push(`飲む人: ${drinkers[0].amount_to_pay.toLocaleString()}円`);
-      }
-      if (nonDrinkers.length > 0 && nonDrinkers[0].amount_to_pay != null) {
-        lines.push(`飲まない人: ${nonDrinkers[0].amount_to_pay.toLocaleString()}円`);
-      }
-      lines.push(``);
-    }
-
-    if (event.paypay_id) {
-      lines.push(`PayPay ID: ${event.paypay_id}`);
-      lines.push(``);
-    }
-
-    lines.push(`よろしくお願いします！`);
-    return lines.join('\n');
-  };
-
-  const handleCopySettlement = async () => {
-    const text = generateSettlementText();
-    await navigator.clipboard.writeText(text);
-    setSettlementCopied(true);
-    setTimeout(() => setSettlementCopied(false), 2000);
   };
 
   // Tabelog search URL
@@ -397,38 +319,20 @@ export function EventPage() {
         </CardContent>
       </Card>
 
-      {/* 当日出欠・精算 */}
-      <ParticipantList
-        participants={event.participants}
-        eventPaypayId={event.paypay_id}
-        onToggleStatus={handleToggleStatus}
-        onTogglePaid={handleTogglePaid}
-        onDelete={handleDeleteParticipant}
-      />
-
-      <AdminPanel
-        eventId={event.id}
-        participants={event.participants}
-        currentTotalAmount={event.total_amount}
-        currentDrinkerRatio={event.drinker_ratio}
-        onCalculate={handleCalculate}
-        loading={calcLoading}
-      />
-
-      {/* 精算テキスト生成 */}
-      {event.total_amount && event.participants.some((p) => p.amount_to_pay != null) && (
-        <Card>
-          <CardHeader><CardTitle className="text-lg">精算テキスト生成</CardTitle></CardHeader>
-          <CardContent className="space-y-3">
-            <pre className="whitespace-pre-wrap text-xs bg-muted rounded-lg p-3 border border-border">
-              {generateSettlementText()}
-            </pre>
-            <Button onClick={handleCopySettlement} variant="outline" className="w-full">
-              {settlementCopied ? 'コピー済み！' : 'テキストをコピー'}
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+      {/* 当日ページへのリンク */}
+      <Card>
+        <CardContent className="p-4">
+          <Button
+            className="w-full"
+            onClick={() => navigate(`/events/${event.id}/day`)}
+          >
+            当日ページを開く（出欠確認・精算）
+          </Button>
+          <p className="text-[10px] text-muted-foreground mt-2 text-center">
+            当日の出欠確認、精算設定、精算テキスト生成はこちら
+          </p>
+        </CardContent>
+      </Card>
     </div>
   );
 }

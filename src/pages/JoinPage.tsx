@@ -82,8 +82,7 @@ export function JoinPage() {
   const [selectedParticipant, setSelectedParticipant] = useState<Participant | null>(null);
   const [selfName, setSelfName] = useState('');
   const [isDrinker, setIsDrinker] = useState(true);
-  const [addingSelf, setAddingSelf] = useState(false);
-  const [showSelfAdd, setShowSelfAdd] = useState(false);
+  const [isSelfMode, setIsSelfMode] = useState(false);
 
   const [responses, setResponses] = useState<Record<number, ResponseStatus>>({});
   const [afterPartyResponses, setAfterPartyResponses] = useState<Record<number, ResponseStatus>>({});
@@ -117,7 +116,7 @@ export function JoinPage() {
   const handleSelectParticipant = (p: Participant) => {
     setSelectedParticipant(p);
     setIsDrinker(p.is_drinker);
-    setShowSelfAdd(false);
+    setIsSelfMode(false);
     setFormError(null);
     const existing: Record<number, ResponseStatus> = {};
     const existingAP: Record<number, ResponseStatus> = {};
@@ -131,26 +130,17 @@ export function JoinPage() {
     setAfterPartyResponses(existingAP);
   };
 
-  const handleAddSelf = async () => {
-    if (!selfName.trim()) { setFormError('名前を入力してください'); return; }
-    setAddingSelf(true);
+  const handleStartSelfAdd = () => {
+    setIsSelfMode(true);
+    setSelectedParticipant(null);
+    setSelfName('');
+    setIsDrinker(true);
+    setResponses({});
+    setAfterPartyResponses({});
     setFormError(null);
-    try {
-      const p = await api.addParticipant(event.id, { name: selfName.trim(), is_drinker: isDrinker });
-      await refetch();
-      setSelectedParticipant(p);
-      setShowSelfAdd(false);
-      setResponses({});
-      setAfterPartyResponses({});
-    } catch (err) {
-      setFormError(err instanceof Error ? err.message : '追加に失敗しました');
-    } finally {
-      setAddingSelf(false);
-    }
   };
 
   const handleSubmitResponses = async () => {
-    if (!selectedParticipant) return;
     if (candidateDates.length > 0 && Object.keys(responses).length === 0) {
       setFormError('少なくとも1つの日時に回答してください');
       return;
@@ -158,6 +148,17 @@ export function JoinPage() {
     setSubmitting(true);
     setFormError(null);
     try {
+      let participant = selectedParticipant;
+
+      // If in self-add mode, create participant first
+      if (isSelfMode && !participant) {
+        if (!selfName.trim()) { setFormError('名前を入力してください'); setSubmitting(false); return; }
+        const p = await api.addParticipant(event.id, { name: selfName.trim(), is_drinker: isDrinker });
+        participant = p;
+      }
+
+      if (!participant) { setSubmitting(false); return; }
+
       const responseArray = candidateDates
         .filter((cd) => responses[cd.id])
         .map((cd) => ({
@@ -166,11 +167,11 @@ export function JoinPage() {
           after_party_status: afterPartyResponses[cd.id] || undefined,
         }));
       await api.submitResponses(event.id, {
-        participant_id: selectedParticipant.id,
+        participant_id: participant.id,
         responses: responseArray,
       });
-      if (selectedParticipant.is_drinker !== isDrinker) {
-        await api.updateParticipant(selectedParticipant.id, { is_drinker: isDrinker });
+      if (!isSelfMode && participant.is_drinker !== isDrinker) {
+        await api.updateParticipant(participant.id, { is_drinker: isDrinker });
       }
       setSubmitted(true);
       await refetch();
@@ -185,7 +186,7 @@ export function JoinPage() {
     setSelectedParticipant(null);
     setSelfName('');
     setIsDrinker(true);
-    setShowSelfAdd(false);
+    setIsSelfMode(false);
     setResponses({});
     setAfterPartyResponses({});
     setSubmitted(false);
@@ -240,7 +241,7 @@ export function JoinPage() {
             <Button variant="outline" onClick={handleReset}>別の人の回答をする</Button>
           </CardContent>
         </Card>
-      ) : !selectedParticipant ? (
+      ) : !selectedParticipant && !isSelfMode ? (
         <Card>
           <CardHeader><CardTitle className="text-lg">あなたの名前を選んでください</CardTitle></CardHeader>
           <CardContent className="space-y-4">
@@ -257,28 +258,9 @@ export function JoinPage() {
               </div>
             )}
             <div className="border-t border-border pt-4">
-              {showSelfAdd ? (
-                <div className="space-y-3">
-                  <Label>名前を入力</Label>
-                  <Input placeholder="例: 田中太郎" value={selfName} onChange={(e) => setSelfName(e.target.value)} />
-                  <div className="space-y-2">
-                    <Label>飲酒</Label>
-                    <div className="flex gap-2">
-                      <Button type="button" variant={isDrinker ? 'default' : 'outline'} size="sm" onClick={() => setIsDrinker(true)}>飲む</Button>
-                      <Button type="button" variant={!isDrinker ? 'default' : 'outline'} size="sm" onClick={() => setIsDrinker(false)}>飲まない</Button>
-                    </div>
-                  </div>
-                  {formError && <p className="text-sm text-destructive">{formError}</p>}
-                  <div className="flex gap-2">
-                    <Button onClick={handleAddSelf} disabled={addingSelf} className="flex-1">{addingSelf ? '追加中...' : '追加して回答する'}</Button>
-                    <Button variant="outline" onClick={() => setShowSelfAdd(false)}>戻る</Button>
-                  </div>
-                </div>
-              ) : (
-                <Button variant="outline" className="w-full" onClick={() => setShowSelfAdd(true)}>
-                  リストにない場合はこちら（名前を追加）
-                </Button>
-              )}
+              <Button variant="outline" className="w-full" onClick={handleStartSelfAdd}>
+                リストにない場合はこちら（名前を追加）
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -286,11 +268,20 @@ export function JoinPage() {
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">{selectedParticipant.name}さんの回答</CardTitle>
+              <CardTitle className="text-lg">
+                {isSelfMode ? '新規参加者の回答' : `${selectedParticipant!.name}さんの回答`}
+              </CardTitle>
               <Button variant="outline" size="sm" onClick={handleReset}>名前を変更</Button>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
+            {isSelfMode && (
+              <div className="space-y-2">
+                <Label>名前</Label>
+                <Input placeholder="例: 田中太郎" value={selfName} onChange={(e) => setSelfName(e.target.value)} />
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label>飲酒</Label>
               <div className="flex gap-2">
@@ -334,7 +325,7 @@ export function JoinPage() {
 
             {formError && <p className="text-sm text-destructive">{formError}</p>}
             <Button onClick={handleSubmitResponses} disabled={submitting} className="w-full">
-              {submitting ? '送信中...' : '回答を送信'}
+              {submitting ? '送信中...' : isSelfMode ? '追加して回答を送信' : '回答を送信'}
             </Button>
           </CardContent>
         </Card>
