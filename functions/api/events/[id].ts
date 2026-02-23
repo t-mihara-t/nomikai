@@ -49,7 +49,28 @@ export const onRequestGet: PagesFunction<Env> = async ({ params, env }) => {
     // venue_selections table may not exist yet
   }
 
-  return Response.json({ ...event, participants, candidate_dates: candidateDates, venue_selections: venueSelections });
+  // Fetch participant responses
+  let participantResponses: Record<string, unknown>[] = [];
+  try {
+    const res = await env.DB.prepare(
+      `SELECT pr.* FROM participant_responses pr
+       JOIN participants p ON pr.participant_id = p.id
+       WHERE p.event_id = ?`
+    )
+      .bind(id)
+      .all();
+    participantResponses = res.results;
+  } catch {
+    // participant_responses table may not exist yet
+  }
+
+  return Response.json({
+    ...event,
+    participants,
+    candidate_dates: candidateDates,
+    venue_selections: venueSelections,
+    participant_responses: participantResponses,
+  });
 };
 
 export const onRequestPut: PagesFunction<Env> = async ({ params, request, env }) => {

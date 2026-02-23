@@ -18,8 +18,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ params, request, env }
   const eventId = params.id;
   const body = await request.json<{
     name: string;
-    status?: 'attending' | 'absent' | 'pending';
-    is_drinker: boolean;
+    is_drinker?: boolean;
     paypay_id?: string;
   }>();
 
@@ -35,12 +34,16 @@ export const onRequestPost: PagesFunction<Env> = async ({ params, request, env }
     return Response.json({ error: 'Event not found' }, { status: 404 });
   }
 
-  const status = body.status || 'pending';
-
   const result = await env.DB.prepare(
     'INSERT INTO participants (event_id, name, status, is_drinker, paypay_id) VALUES (?, ?, ?, ?, ?) RETURNING *'
   )
-    .bind(eventId, body.name, status, body.is_drinker ? 1 : 0, body.paypay_id || null)
+    .bind(
+      eventId,
+      body.name,
+      'pending',
+      body.is_drinker !== undefined ? (body.is_drinker ? 1 : 0) : 1,
+      body.paypay_id || null
+    )
     .first();
 
   return Response.json(result, { status: 201 });

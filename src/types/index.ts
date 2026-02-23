@@ -29,9 +29,19 @@ export interface Participant {
   created_at: string;
 }
 
+export interface ParticipantResponse {
+  id: number;
+  participant_id: number;
+  candidate_date_id: number;
+  status: 'attending' | 'absent' | 'pending';
+  after_party_status: 'attending' | 'absent' | 'pending' | null;
+  created_at: string;
+}
+
 export interface EventWithParticipants extends Event {
   participants: Participant[];
   venue_selections: VenueSelection[];
+  participant_responses: ParticipantResponse[];
 }
 
 export interface CalculateRequest {
