@@ -226,7 +226,7 @@ export function EventPage() {
       </Card>
 
       {/* お店を探す */}
-      <RestaurantSearch />
+      <RestaurantSearch hasAfterParty={!!event.has_after_party} />
 
       <ParticipantForm onSubmit={handleAddParticipant} loading={addingParticipant} />
 

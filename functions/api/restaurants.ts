@@ -6,10 +6,11 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const url = new URL(request.url);
   const keyword = url.searchParams.get('keyword');
   const count = url.searchParams.get('count') || '10';
-
-  if (!keyword) {
-    return Response.json({ error: 'keyword is required' }, { status: 400 });
-  }
+  const range = url.searchParams.get('range');
+  const budget = url.searchParams.get('budget');
+  const partyCapacity = url.searchParams.get('party_capacity');
+  const lat = url.searchParams.get('lat');
+  const lng = url.searchParams.get('lng');
 
   const apiKey = env.HOTPEPPER_API_KEY;
   if (!apiKey) {
@@ -21,10 +22,21 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 
   const params = new URLSearchParams({
     key: apiKey,
-    keyword,
     count,
     format: 'json',
   });
+
+  if (keyword) params.set('keyword', keyword);
+  if (range) params.set('range', range);
+  if (budget) params.set('budget', budget);
+  if (partyCapacity) params.set('party_capacity', partyCapacity);
+  if (lat) params.set('lat', lat);
+  if (lng) params.set('lng', lng);
+
+  // At least keyword or lat/lng is required
+  if (!keyword && !lat) {
+    return Response.json({ error: 'keyword or lat/lng is required' }, { status: 400 });
+  }
 
   const res = await fetch(
     `https://webservice.recruit.co.jp/hotpepper/gourmet/v1/?${params.toString()}`
@@ -46,6 +58,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         name: string;
         address: string;
         station_name: string;
+        lat: number;
+        lng: number;
         catch: string;
         open: string;
         budget: { average: string; name: string };
@@ -53,6 +67,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         photo: { pc: { m: string } };
         urls: { pc: string };
         capacity: number;
+        party_capacity: number;
         course: string;
         free_drink: string;
         free_food: string;
@@ -75,6 +90,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     name: shop.name,
     address: shop.address,
     station_name: shop.station_name,
+    lat: shop.lat,
+    lng: shop.lng,
     catch: shop.catch,
     open: shop.open,
     budget_average: shop.budget?.average || '',
@@ -83,6 +100,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     photo_url: shop.photo?.pc?.m || '',
     url: shop.urls?.pc || '',
     capacity: shop.capacity || 0,
+    party_capacity: shop.party_capacity || 0,
     course: shop.course || '',
     free_drink: shop.free_drink || '',
     free_food: shop.free_food || '',
