@@ -1,7 +1,4 @@
-DROP TABLE IF EXISTS participants;
-DROP TABLE IF EXISTS events;
-
-CREATE TABLE events (
+CREATE TABLE IF NOT EXISTS events (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,
   date TEXT NOT NULL,
@@ -11,7 +8,7 @@ CREATE TABLE events (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
-CREATE TABLE participants (
+CREATE TABLE IF NOT EXISTS participants (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   event_id INTEGER NOT NULL,
   name TEXT NOT NULL,
@@ -24,4 +21,4 @@ CREATE TABLE participants (
   FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_participants_event_id ON participants(event_id);
+CREATE INDEX IF NOT EXISTS idx_participants_event_id ON participants(event_id);
