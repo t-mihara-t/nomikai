@@ -1,4 +1,4 @@
-import type { Event, EventWithParticipants, Participant, CandidateDate, CalculateResult, RestaurantSearchResult, VenueSelection, Restaurant } from '@/types';
+import type { Event, EventWithParticipants, Participant, CandidateDate, CalculateResult, RestaurantSearchResult, VenueSelection, Restaurant, ParticipantResponse } from '@/types';
 
 const API_BASE = '/api';
 
@@ -69,7 +69,7 @@ export const api = {
   // Participants
   addParticipant(
     eventId: number,
-    data: { name: string; status?: 'attending' | 'absent' | 'pending'; is_drinker: boolean; paypay_id?: string }
+    data: { name: string; is_drinker?: boolean }
   ): Promise<Participant> {
     return fetchJson(`${API_BASE}/events/${eventId}/participants`, {
       method: 'POST',
@@ -89,6 +89,24 @@ export const api = {
 
   deleteParticipant(id: number): Promise<{ success: boolean }> {
     return fetchJson(`${API_BASE}/participants/${id}`, { method: 'DELETE' });
+  },
+
+  // Participant Responses (per-date)
+  submitResponses(
+    eventId: number,
+    data: {
+      participant_id: number;
+      responses: Array<{
+        candidate_date_id: number;
+        status: 'attending' | 'absent' | 'pending';
+        after_party_status?: 'attending' | 'absent' | 'pending';
+      }>;
+    }
+  ): Promise<ParticipantResponse[]> {
+    return fetchJson(`${API_BASE}/events/${eventId}/responses`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   },
 
   // Restaurants

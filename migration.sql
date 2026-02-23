@@ -26,3 +26,19 @@ CREATE TABLE IF NOT EXISTS venue_selections (
 );
 
 CREATE INDEX IF NOT EXISTS idx_venue_selections_event_id ON venue_selections(event_id);
+
+-- Create participant_responses table for per-date responses
+CREATE TABLE IF NOT EXISTS participant_responses (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  participant_id INTEGER NOT NULL,
+  candidate_date_id INTEGER NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('attending', 'absent', 'pending')),
+  after_party_status TEXT CHECK (after_party_status IN ('attending', 'absent', 'pending')),
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (participant_id) REFERENCES participants(id) ON DELETE CASCADE,
+  FOREIGN KEY (candidate_date_id) REFERENCES candidate_dates(id) ON DELETE CASCADE,
+  UNIQUE(participant_id, candidate_date_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_participant_responses_participant ON participant_responses(participant_id);
+CREATE INDEX IF NOT EXISTS idx_participant_responses_date ON participant_responses(candidate_date_id);
