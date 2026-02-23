@@ -27,11 +27,12 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   });
 
   if (keyword) params.set('keyword', keyword);
-  if (range) params.set('range', range);
   if (budget) params.set('budget', budget);
-  if (partyCapacity) params.set('party_capacity', partyCapacity);
   if (lat) params.set('lat', lat);
   if (lng) params.set('lng', lng);
+  // range only works with lat/lng, not keyword-only search
+  if (range && lat && lng) params.set('range', range);
+  // party_capacity is a response field only, not a search param - filtered client-side
 
   // At least keyword or lat/lng is required
   if (!keyword && !lat) {

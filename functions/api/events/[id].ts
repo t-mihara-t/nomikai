@@ -31,7 +31,25 @@ export const onRequestGet: PagesFunction<Env> = async ({ params, env }) => {
     // candidate_dates table may not exist yet
   }
 
-  return Response.json({ ...event, participants, candidate_dates: candidateDates });
+  let venueSelections: Record<string, unknown>[] = [];
+  try {
+    const res = await env.DB.prepare(
+      'SELECT * FROM venue_selections WHERE event_id = ? ORDER BY venue_type, created_at ASC'
+    )
+      .bind(id)
+      .all();
+    venueSelections = res.results.map((v) => ({
+      id: v.id,
+      event_id: v.event_id,
+      venue_type: v.venue_type,
+      restaurant: JSON.parse(v.restaurant_data as string),
+      created_at: v.created_at,
+    }));
+  } catch {
+    // venue_selections table may not exist yet
+  }
+
+  return Response.json({ ...event, participants, candidate_dates: candidateDates, venue_selections: venueSelections });
 };
 
 export const onRequestPut: PagesFunction<Env> = async ({ params, request, env }) => {
@@ -107,6 +125,11 @@ export const onRequestDelete: PagesFunction<Env> = async ({ params, env }) => {
     await env.DB.prepare('DELETE FROM candidate_dates WHERE event_id = ?').bind(id).run();
   } catch {
     // candidate_dates table may not exist yet
+  }
+  try {
+    await env.DB.prepare('DELETE FROM venue_selections WHERE event_id = ?').bind(id).run();
+  } catch {
+    // venue_selections table may not exist yet
   }
   await env.DB.prepare('DELETE FROM participants WHERE event_id = ?').bind(id).run();
   await env.DB.prepare('DELETE FROM events WHERE id = ?').bind(id).run();

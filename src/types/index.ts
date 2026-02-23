@@ -31,6 +31,7 @@ export interface Participant {
 
 export interface EventWithParticipants extends Event {
   participants: Participant[];
+  venue_selections: VenueSelection[];
 }
 
 export interface CalculateRequest {
@@ -74,4 +75,12 @@ export interface Restaurant {
 export interface RestaurantSearchResult {
   total: number;
   shops: Restaurant[];
+}
+
+export interface VenueSelection {
+  id: number;
+  event_id: number;
+  venue_type: 'primary' | 'after_party';
+  restaurant: Restaurant;
+  created_at: string;
 }

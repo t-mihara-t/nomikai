@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { api } from '@/lib/api';
-import type { Restaurant } from '@/types';
+import type { Restaurant, VenueSelection } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -35,18 +35,23 @@ const RANGE_OPTIONS = [
 ];
 
 interface RestaurantSearchProps {
-  hasAfterParty?: boolean;
+  eventId: number;
+  hasAfterParty: boolean;
+  savedVenues: VenueSelection[];
+  onVenueChange: () => void;
 }
 
 function ShopCard({
   shop,
-  onSelect,
-  selectLabel,
+  actions,
 }: {
   shop: Restaurant;
-  onSelect?: (shop: Restaurant) => void;
-  selectLabel?: string;
+  actions?: React.ReactNode;
 }) {
+  const mapUrl = shop.lat && shop.lng
+    ? `https://www.google.com/maps/search/?api=1&query=${shop.lat},${shop.lng}`
+    : null;
+
   return (
     <div className="rounded-lg border border-border p-3 space-y-2">
       <div className="flex gap-3">
@@ -88,7 +93,7 @@ function ShopCard({
           {shop.course === 'あり' && <span>コースあり</span>}
         </div>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         {shop.url && (
           <a
             href={shop.url}
@@ -96,25 +101,26 @@ function ShopCard({
             rel="noopener noreferrer"
             className="inline-block text-xs text-primary hover:underline"
           >
-            ホットペッパーで詳細を見る →
+            ホットペッパーで見る
           </a>
         )}
-        {onSelect && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="ml-auto text-xs"
-            onClick={() => onSelect(shop)}
+        {mapUrl && (
+          <a
+            href={mapUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block text-xs text-primary hover:underline"
           >
-            {selectLabel || '選択'}
-          </Button>
+            地図を見る
+          </a>
         )}
+        {actions && <div className="ml-auto flex gap-1">{actions}</div>}
       </div>
     </div>
   );
 }
 
-export function RestaurantSearch({ hasAfterParty }: RestaurantSearchProps) {
+export function RestaurantSearch({ eventId, hasAfterParty, savedVenues, onVenueChange }: RestaurantSearchProps) {
   const [keyword, setKeyword] = useState('');
   const [budget, setBudget] = useState('');
   const [range, setRange] = useState('');
@@ -123,28 +129,75 @@ export function RestaurantSearch({ hasAfterParty }: RestaurantSearchProps) {
   const [total, setTotal] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState<string | null>(null);
 
-  // 一次会の選択と二次会
-  const [primaryVenue, setPrimaryVenue] = useState<Restaurant | null>(null);
+  // After-party search
   const [afterPartyResults, setAfterPartyResults] = useState<Restaurant[]>([]);
   const [afterPartyTotal, setAfterPartyTotal] = useState<number | null>(null);
   const [afterPartyLoading, setAfterPartyLoading] = useState(false);
   const [afterPartyError, setAfterPartyError] = useState<string | null>(null);
+  const [savingAfterParty, setSavingAfterParty] = useState<string | null>(null);
+
+  const primaryVenues = savedVenues.filter((v) => v.venue_type === 'primary');
+  const afterPartyVenues = savedVenues.filter((v) => v.venue_type === 'after_party');
 
   const handleSearch = async () => {
     if (!keyword.trim()) return;
     setLoading(true);
     setError(null);
+    setResults([]);
+    setTotal(null);
+
     try {
-      const data = await api.searchRestaurants({
+      // Step 1: keyword search (with budget if set)
+      const baseParams: Parameters<typeof api.searchRestaurants>[0] = {
         keyword: keyword.trim(),
         count: 10,
-        range: range || undefined,
         budget: budget || undefined,
-        party_capacity: partySize ? parseInt(partySize, 10) : undefined,
-      });
-      setResults(data.shops);
-      setTotal(data.total);
+      };
+
+      const initialData = await api.searchRestaurants(baseParams);
+
+      // Step 2: If range is selected, use coordinates from first result for geo-filtered search
+      if (range && initialData.shops.length > 0) {
+        const firstShop = initialData.shops[0];
+        if (firstShop.lat && firstShop.lng) {
+          try {
+            const geoData = await api.searchRestaurants({
+              keyword: keyword.trim(),
+              lat: firstShop.lat,
+              lng: firstShop.lng,
+              range,
+              budget: budget || undefined,
+              count: 10,
+            });
+            let filteredShops = geoData.shops;
+            // Client-side party_capacity filter
+            if (partySize) {
+              const minCapacity = parseInt(partySize, 10);
+              filteredShops = filteredShops.filter(
+                (s) => !s.party_capacity || s.party_capacity >= minCapacity
+              );
+            }
+            setResults(filteredShops);
+            setTotal(geoData.total);
+            return;
+          } catch {
+            // Fall back to initial results if geo search fails
+          }
+        }
+      }
+
+      // Use initial results (no range or range search failed)
+      let shops = initialData.shops;
+      if (partySize) {
+        const minCapacity = parseInt(partySize, 10);
+        shops = shops.filter(
+          (s) => !s.party_capacity || s.party_capacity >= minCapacity
+        );
+      }
+      setResults(shops);
+      setTotal(initialData.total);
     } catch (err) {
       setError(err instanceof Error ? err.message : '検索に失敗しました');
       setResults([]);
@@ -161,46 +214,135 @@ export function RestaurantSearch({ hasAfterParty }: RestaurantSearchProps) {
     }
   };
 
-  const handleSelectPrimary = async (shop: Restaurant) => {
-    setPrimaryVenue(shop);
-    if (hasAfterParty && shop.lat && shop.lng) {
-      await searchAfterParty(shop);
+  const handleSavePrimary = async (shop: Restaurant) => {
+    if (primaryVenues.length >= 2) {
+      setError('一次会候補は最大2件までです。既存の候補を削除してから追加してください。');
+      return;
+    }
+    setSaving(shop.id);
+    try {
+      await api.addVenue(eventId, { venue_type: 'primary', restaurant: shop });
+      onVenueChange();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '保存に失敗しました');
+    } finally {
+      setSaving(null);
     }
   };
 
-  const searchAfterParty = async (venue: Restaurant) => {
+  const handleDeleteVenue = async (venueId: number) => {
+    try {
+      await api.deleteVenue(venueId);
+      onVenueChange();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '削除に失敗しました');
+    }
+  };
+
+  const handleSearchAfterParty = async () => {
+    // Search near the first primary venue
+    const venue = primaryVenues[0];
+    if (!venue) return;
+    const shop = venue.restaurant;
+    if (!shop.lat || !shop.lng) {
+      setAfterPartyError('一次会会場の位置情報がないため、二次会候補を検索できません');
+      return;
+    }
+
     setAfterPartyLoading(true);
     setAfterPartyError(null);
+    setAfterPartyResults([]);
+    setAfterPartyTotal(null);
+
     try {
       const data = await api.searchRestaurants({
-        lat: venue.lat,
-        lng: venue.lng,
+        lat: shop.lat,
+        lng: shop.lng,
         range: '2', // 500m以内
         keyword: '居酒屋 バー',
-        count: 5,
+        count: 10,
       });
-      // 一次会と同じ店を除外
-      const filtered = data.shops.filter((s) => s.id !== venue.id);
+      // Exclude primary venues
+      const primaryIds = new Set(primaryVenues.map((v) => v.restaurant.id));
+      const filtered = data.shops.filter((s) => !primaryIds.has(s.id));
       setAfterPartyResults(filtered);
       setAfterPartyTotal(data.total);
     } catch (err) {
       setAfterPartyError(err instanceof Error ? err.message : '二次会候補の検索に失敗しました');
-      setAfterPartyResults([]);
-      setAfterPartyTotal(null);
     } finally {
       setAfterPartyLoading(false);
     }
   };
 
-  const handleClearPrimary = () => {
-    setPrimaryVenue(null);
-    setAfterPartyResults([]);
-    setAfterPartyTotal(null);
-    setAfterPartyError(null);
+  const handleSaveAfterParty = async (shop: Restaurant) => {
+    setSavingAfterParty(shop.id);
+    try {
+      await api.addVenue(eventId, { venue_type: 'after_party', restaurant: shop });
+      onVenueChange();
+    } catch (err) {
+      setAfterPartyError(err instanceof Error ? err.message : '保存に失敗しました');
+    } finally {
+      setSavingAfterParty(null);
+    }
   };
 
   return (
     <div className="space-y-4">
+      {/* Saved primary venues */}
+      {primaryVenues.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">一次会候補 ({primaryVenues.length}/2)</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {primaryVenues.map((v) => (
+              <ShopCard
+                key={v.id}
+                shop={v.restaurant}
+                actions={
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs text-destructive"
+                    onClick={() => handleDeleteVenue(v.id)}
+                  >
+                    削除
+                  </Button>
+                }
+              />
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Saved after-party venues */}
+      {afterPartyVenues.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">二次会候補</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {afterPartyVenues.map((v) => (
+              <ShopCard
+                key={v.id}
+                shop={v.restaurant}
+                actions={
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs text-destructive"
+                    onClick={() => handleDeleteVenue(v.id)}
+                  >
+                    削除
+                  </Button>
+                }
+              />
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Search */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">お店を探す</CardTitle>
@@ -234,6 +376,11 @@ export function RestaurantSearch({ hasAfterParty }: RestaurantSearchProps) {
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
               </Select>
+              {range && (
+                <p className="text-[10px] text-muted-foreground">
+                  ※キーワード検索結果の周辺で距離フィルタを適用します
+                </p>
+              )}
             </div>
             <div className="space-y-1">
               <Label htmlFor="search-budget" className="text-xs">1人あたり予算</Label>
@@ -265,59 +412,62 @@ export function RestaurantSearch({ hasAfterParty }: RestaurantSearchProps) {
           {total !== null && (
             <p className="text-sm text-muted-foreground">
               {total}件中 {results.length}件を表示
+              {results.length === 0 && ' - 条件を緩めて再検索してみてください'}
             </p>
           )}
 
           {results.length > 0 && (
             <div className="space-y-3">
-              {results.map((shop) => (
-                <ShopCard
-                  key={shop.id}
-                  shop={shop}
-                  onSelect={handleSelectPrimary}
-                  selectLabel="一次会に選ぶ"
-                />
-              ))}
+              {results.map((shop) => {
+                const alreadySaved = primaryVenues.some((v) => v.restaurant.id === shop.id);
+                return (
+                  <ShopCard
+                    key={shop.id}
+                    shop={shop}
+                    actions={
+                      alreadySaved ? (
+                        <Badge variant="secondary" className="text-xs">選択済み</Badge>
+                      ) : primaryVenues.length >= 2 ? (
+                        <Badge variant="outline" className="text-xs">候補上限</Badge>
+                      ) : (
+                        <Button
+                          variant="default"
+                          size="sm"
+                          className="text-xs"
+                          disabled={saving === shop.id}
+                          onClick={() => handleSavePrimary(shop)}
+                        >
+                          {saving === shop.id ? '保存中...' : '一次会候補に追加'}
+                        </Button>
+                      )
+                    }
+                  />
+                );
+              })}
             </div>
-          )}
-
-          {total !== null && results.length === 0 && (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              該当するお店が見つかりませんでした
-            </p>
           )}
         </CardContent>
       </Card>
 
-      {/* 一次会の選択結果 */}
-      {primaryVenue && (
+      {/* After-party search */}
+      {hasAfterParty && primaryVenues.length > 0 && (
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">一次会会場</CardTitle>
-              <Button variant="outline" size="sm" onClick={handleClearPrimary}>
-                変更
+              <CardTitle className="text-lg">
+                二次会を探す（{primaryVenues[0].restaurant.name}の近く）
+              </CardTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSearchAfterParty}
+                disabled={afterPartyLoading}
+              >
+                {afterPartyLoading ? '検索中...' : afterPartyResults.length > 0 ? '再検索' : '検索'}
               </Button>
             </div>
           </CardHeader>
-          <CardContent>
-            <ShopCard shop={primaryVenue} />
-          </CardContent>
-        </Card>
-      )}
-
-      {/* 二次会候補の自動検索 */}
-      {hasAfterParty && primaryVenue && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">
-              二次会おすすめ（{primaryVenue.name}の近く）
-            </CardTitle>
-          </CardHeader>
           <CardContent className="space-y-3">
-            {afterPartyLoading && (
-              <p className="text-sm text-muted-foreground">二次会候補を検索中...</p>
-            )}
             {afterPartyError && (
               <p className="text-sm text-destructive">{afterPartyError}</p>
             )}
@@ -328,9 +478,30 @@ export function RestaurantSearch({ hasAfterParty }: RestaurantSearchProps) {
             )}
             {afterPartyResults.length > 0 && (
               <div className="space-y-3">
-                {afterPartyResults.map((shop) => (
-                  <ShopCard key={shop.id} shop={shop} />
-                ))}
+                {afterPartyResults.map((shop) => {
+                  const alreadySaved = afterPartyVenues.some((v) => v.restaurant.id === shop.id);
+                  return (
+                    <ShopCard
+                      key={shop.id}
+                      shop={shop}
+                      actions={
+                        alreadySaved ? (
+                          <Badge variant="secondary" className="text-xs">選択済み</Badge>
+                        ) : (
+                          <Button
+                            variant="default"
+                            size="sm"
+                            className="text-xs"
+                            disabled={savingAfterParty === shop.id}
+                            onClick={() => handleSaveAfterParty(shop)}
+                          >
+                            {savingAfterParty === shop.id ? '保存中...' : '二次会候補に追加'}
+                          </Button>
+                        )
+                      }
+                    />
+                  );
+                })}
               </div>
             )}
             {afterPartyTotal !== null && afterPartyResults.length === 0 && !afterPartyLoading && (
