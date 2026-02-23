@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { RestaurantSearch } from '@/components/RestaurantSearch';
 
 function formatDateTime(dt: string) {
   const d = new Date(dt);
@@ -223,6 +224,9 @@ export function EventPage() {
           </Button>
         </CardContent>
       </Card>
+
+      {/* お店を探す */}
+      <RestaurantSearch />
 
       <ParticipantForm onSubmit={handleAddParticipant} loading={addingParticipant} />
 
