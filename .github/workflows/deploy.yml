@@ -55,9 +55,40 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: d1 execute nomikai-db --remote --file=./schema.sql
 
+      - name: Bind D1 database to Pages project
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          DB_ID="${{ steps.d1-info.outputs.database_id }}"
+          curl -sf -X PATCH \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/nomikai" \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            -H "Content-Type: application/json" \
+            --data "{
+              \"deployment_configs\": {
+                \"production\": {
+                  \"d1_databases\": {
+                    \"DB\": {
+                      \"id\": \"$DB_ID\"
+                    }
+                  }
+                },
+                \"preview\": {
+                  \"d1_databases\": {
+                    \"DB\": {
+                      \"id\": \"$DB_ID\"
+                    }
+                  }
+                }
+              }
+            }"
+          echo ""
+          echo "D1 binding configured for Pages project"
+
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy dist --project-name=nomikai --branch main --d1 DB=${{ steps.d1-info.outputs.database_id }}
+          command: pages deploy dist --project-name=nomikai --branch main
