@@ -19,7 +19,13 @@ export const onRequestGet: PagesFunction<Env> = async ({ params, env }) => {
     .bind(id)
     .all();
 
-  return Response.json({ ...event, participants });
+  const { results: candidateDates } = await env.DB.prepare(
+    'SELECT * FROM candidate_dates WHERE event_id = ? ORDER BY date_time ASC'
+  )
+    .bind(id)
+    .all();
+
+  return Response.json({ ...event, participants, candidate_dates: candidateDates });
 };
 
 export const onRequestPut: PagesFunction<Env> = async ({ params, request, env }) => {
@@ -29,6 +35,7 @@ export const onRequestPut: PagesFunction<Env> = async ({ params, request, env })
     date?: string;
     total_amount?: number;
     drinker_ratio?: number;
+    has_after_party?: boolean;
     paypay_id?: string;
   }>();
 
@@ -46,6 +53,7 @@ export const onRequestPut: PagesFunction<Env> = async ({ params, request, env })
       date = COALESCE(?, date),
       total_amount = COALESCE(?, total_amount),
       drinker_ratio = COALESCE(?, drinker_ratio),
+      has_after_party = COALESCE(?, has_after_party),
       paypay_id = COALESCE(?, paypay_id)
     WHERE id = ? RETURNING *`
   )
@@ -54,6 +62,7 @@ export const onRequestPut: PagesFunction<Env> = async ({ params, request, env })
       body.date || null,
       body.total_amount ?? null,
       body.drinker_ratio ?? null,
+      body.has_after_party !== undefined ? (body.has_after_party ? 1 : 0) : null,
       body.paypay_id ?? null,
       id
     )
@@ -65,6 +74,7 @@ export const onRequestPut: PagesFunction<Env> = async ({ params, request, env })
 export const onRequestDelete: PagesFunction<Env> = async ({ params, env }) => {
   const id = params.id;
 
+  await env.DB.prepare('DELETE FROM candidate_dates WHERE event_id = ?').bind(id).run();
   await env.DB.prepare('DELETE FROM participants WHERE event_id = ?').bind(id).run();
   await env.DB.prepare('DELETE FROM events WHERE id = ?').bind(id).run();
 

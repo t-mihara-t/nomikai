@@ -7,9 +7,31 @@ import { PayPayLink } from './PayPayLink';
 interface ParticipantListProps {
   participants: Participant[];
   eventPaypayId?: string | null;
-  onToggleStatus: (id: number, currentStatus: 'attending' | 'absent') => void;
+  onToggleStatus: (id: number, currentStatus: 'attending' | 'absent' | 'pending') => void;
   onTogglePaid: (id: number, currentPaid: boolean) => void;
   onDelete: (id: number) => void;
+}
+
+function statusBadge(status: 'attending' | 'absent' | 'pending') {
+  switch (status) {
+    case 'attending':
+      return <Badge variant="default">参加</Badge>;
+    case 'absent':
+      return <Badge variant="secondary">不参加</Badge>;
+    case 'pending':
+      return <Badge variant="warning">保留</Badge>;
+  }
+}
+
+function nextStatusLabel(status: 'attending' | 'absent' | 'pending') {
+  switch (status) {
+    case 'attending':
+      return '不参加にする';
+    case 'absent':
+      return '保留にする';
+    case 'pending':
+      return '参加にする';
+  }
 }
 
 export function ParticipantList({
@@ -21,12 +43,13 @@ export function ParticipantList({
 }: ParticipantListProps) {
   const attending = participants.filter((p) => p.status === 'attending');
   const absent = participants.filter((p) => p.status === 'absent');
+  const pending = participants.filter((p) => p.status === 'pending');
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-lg">
-          参加者一覧 ({attending.length}名参加 / {absent.length}名欠席)
+          参加者一覧 ({attending.length}名参加 / {pending.length}名保留 / {absent.length}名不参加)
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -41,9 +64,7 @@ export function ParticipantList({
               >
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-medium">{p.name}</span>
-                  <Badge variant={p.status === 'attending' ? 'default' : 'secondary'}>
-                    {p.status === 'attending' ? '参加' : '欠席'}
-                  </Badge>
+                  {statusBadge(p.status)}
                   {p.status === 'attending' && (
                     <Badge variant={p.is_drinker ? 'warning' : 'outline'}>
                       {p.is_drinker ? '飲む' : '飲まない'}
@@ -68,7 +89,7 @@ export function ParticipantList({
                     size="sm"
                     onClick={() => onToggleStatus(p.id, p.status)}
                   >
-                    {p.status === 'attending' ? '欠席にする' : '参加にする'}
+                    {nextStatusLabel(p.status)}
                   </Button>
                   {p.status === 'attending' && p.amount_to_pay != null && (
                     <Button

@@ -12,7 +12,13 @@ export function HomePage() {
   const [creating, setCreating] = useState(false);
   const navigate = useNavigate();
 
-  const handleCreate = async (data: { name: string; date: string; paypay_id?: string }) => {
+  const handleCreate = async (data: {
+    name: string;
+    date: string;
+    has_after_party?: boolean;
+    candidate_dates?: string[];
+    paypay_id?: string;
+  }) => {
     setCreating(true);
     try {
       const event = await api.createEvent(data);
@@ -57,11 +63,21 @@ export function HomePage() {
               >
                 <h3 className="font-semibold">{event.name}</h3>
                 <p className="text-sm text-muted-foreground">{event.date}</p>
-                {event.total_amount && (
-                  <Badge variant="outline" className="mt-1">
-                    合計: {event.total_amount.toLocaleString()}円
-                  </Badge>
-                )}
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {event.total_amount && (
+                    <Badge variant="outline">
+                      合計: {event.total_amount.toLocaleString()}円
+                    </Badge>
+                  )}
+                  {event.has_after_party && (
+                    <Badge variant="secondary">二次会あり</Badge>
+                  )}
+                  {event.candidate_dates && event.candidate_dates.length > 0 && (
+                    <Badge variant="outline">
+                      候補: {event.candidate_dates.length}件
+                    </Badge>
+                  )}
+                </div>
               </div>
               <Button
                 variant="destructive"
