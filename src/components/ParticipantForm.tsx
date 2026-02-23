@@ -5,12 +5,19 @@ import { Label } from '@/components/ui/label';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 
 interface ParticipantFormProps {
-  onSubmit: (data: { name: string; is_drinker: boolean; paypay_id?: string }) => Promise<void>;
+  onSubmit: (data: {
+    name: string;
+    status?: 'attending' | 'absent' | 'pending';
+    is_drinker: boolean;
+    paypay_id?: string;
+  }) => Promise<void>;
   loading?: boolean;
+  showStatus?: boolean;
 }
 
-export function ParticipantForm({ onSubmit, loading }: ParticipantFormProps) {
+export function ParticipantForm({ onSubmit, loading, showStatus }: ParticipantFormProps) {
   const [name, setName] = useState('');
+  const [status, setStatus] = useState<'attending' | 'absent' | 'pending'>('attending');
   const [isDrinker, setIsDrinker] = useState(true);
   const [paypayId, setPaypayId] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -26,11 +33,13 @@ export function ParticipantForm({ onSubmit, loading }: ParticipantFormProps) {
 
     await onSubmit({
       name: name.trim(),
+      status: showStatus ? status : undefined,
       is_drinker: isDrinker,
       paypay_id: paypayId.trim() || undefined,
     });
 
     setName('');
+    setStatus('attending');
     setIsDrinker(true);
     setPaypayId('');
   };
@@ -51,6 +60,37 @@ export function ParticipantForm({ onSubmit, loading }: ParticipantFormProps) {
               onChange={(e) => setName(e.target.value)}
             />
           </div>
+          {showStatus && (
+            <div className="space-y-2">
+              <Label>参加可否</Label>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={status === 'attending' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setStatus('attending')}
+                >
+                  参加
+                </Button>
+                <Button
+                  type="button"
+                  variant={status === 'pending' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setStatus('pending')}
+                >
+                  保留
+                </Button>
+                <Button
+                  type="button"
+                  variant={status === 'absent' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setStatus('absent')}
+                >
+                  不参加
+                </Button>
+              </div>
+            </div>
+          )}
           <div className="space-y-2">
             <Label>飲酒</Label>
             <div className="flex gap-2">

@@ -6,7 +6,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ params, env }) => {
   const eventId = params.id;
 
   const { results } = await env.DB.prepare(
-    'SELECT * FROM participants WHERE event_id = ? ORDER BY created_at ASC'
+    'SELECT * FROM candidate_dates WHERE event_id = ? ORDER BY date_time ASC'
   )
     .bind(eventId)
     .all();
@@ -16,15 +16,10 @@ export const onRequestGet: PagesFunction<Env> = async ({ params, env }) => {
 
 export const onRequestPost: PagesFunction<Env> = async ({ params, request, env }) => {
   const eventId = params.id;
-  const body = await request.json<{
-    name: string;
-    status?: 'attending' | 'absent' | 'pending';
-    is_drinker: boolean;
-    paypay_id?: string;
-  }>();
+  const body = await request.json<{ date_time: string }>();
 
-  if (!body.name) {
-    return Response.json({ error: 'name is required' }, { status: 400 });
+  if (!body.date_time) {
+    return Response.json({ error: 'date_time is required' }, { status: 400 });
   }
 
   const event = await env.DB.prepare('SELECT id FROM events WHERE id = ?')
@@ -35,12 +30,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ params, request, env }
     return Response.json({ error: 'Event not found' }, { status: 404 });
   }
 
-  const status = body.status || 'pending';
-
   const result = await env.DB.prepare(
-    'INSERT INTO participants (event_id, name, status, is_drinker, paypay_id) VALUES (?, ?, ?, ?, ?) RETURNING *'
+    'INSERT INTO candidate_dates (event_id, date_time) VALUES (?, ?) RETURNING *'
   )
-    .bind(eventId, body.name, status, body.is_drinker ? 1 : 0, body.paypay_id || null)
+    .bind(eventId, body.date_time)
     .first();
 
   return Response.json(result, { status: 201 });

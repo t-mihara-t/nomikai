@@ -1,4 +1,4 @@
-import type { Event, EventWithParticipants, Participant, CalculateResult } from '@/types';
+import type { Event, EventWithParticipants, Participant, CandidateDate, CalculateResult } from '@/types';
 
 const API_BASE = '/api';
 
@@ -27,7 +27,13 @@ export const api = {
     return fetchJson(`${API_BASE}/events/${id}`);
   },
 
-  createEvent(data: { name: string; date: string; paypay_id?: string }): Promise<Event> {
+  createEvent(data: {
+    name: string;
+    date: string;
+    has_after_party?: boolean;
+    candidate_dates?: string[];
+    paypay_id?: string;
+  }): Promise<Event> {
     return fetchJson(`${API_BASE}/events`, {
       method: 'POST',
       body: JSON.stringify(data),
@@ -36,7 +42,7 @@ export const api = {
 
   updateEvent(
     id: number,
-    data: Partial<Pick<Event, 'name' | 'date' | 'total_amount' | 'drinker_ratio' | 'paypay_id'>>
+    data: Partial<Pick<Event, 'name' | 'date' | 'total_amount' | 'drinker_ratio' | 'has_after_party' | 'paypay_id'>>
   ): Promise<Event> {
     return fetchJson(`${API_BASE}/events/${id}`, {
       method: 'PUT',
@@ -48,10 +54,22 @@ export const api = {
     return fetchJson(`${API_BASE}/events/${id}`, { method: 'DELETE' });
   },
 
+  // Candidate Dates
+  addCandidateDate(eventId: number, dateTime: string): Promise<CandidateDate> {
+    return fetchJson(`${API_BASE}/events/${eventId}/dates`, {
+      method: 'POST',
+      body: JSON.stringify({ date_time: dateTime }),
+    });
+  },
+
+  deleteCandidateDate(id: number): Promise<{ success: boolean }> {
+    return fetchJson(`${API_BASE}/dates/${id}`, { method: 'DELETE' });
+  },
+
   // Participants
   addParticipant(
     eventId: number,
-    data: { name: string; is_drinker: boolean; paypay_id?: string }
+    data: { name: string; status?: 'attending' | 'absent' | 'pending'; is_drinker: boolean; paypay_id?: string }
   ): Promise<Participant> {
     return fetchJson(`${API_BASE}/events/${eventId}/participants`, {
       method: 'POST',
