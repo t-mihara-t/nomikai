@@ -226,7 +226,12 @@ export function EventPage() {
       </Card>
 
       {/* お店を探す */}
-      <RestaurantSearch hasAfterParty={!!event.has_after_party} />
+      <RestaurantSearch
+        eventId={event.id}
+        hasAfterParty={!!event.has_after_party}
+        savedVenues={event.venue_selections || []}
+        onVenueChange={refetch}
+      />
 
       <ParticipantForm onSubmit={handleAddParticipant} loading={addingParticipant} />
 

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useEventDetail } from '@/hooks/useEventData';
 import { api } from '@/lib/api';
+import type { Restaurant } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -18,6 +19,78 @@ function formatDateTime(dt: string) {
     hour: '2-digit',
     minute: '2-digit',
   });
+}
+
+function VenueCard({ shop, label }: { shop: Restaurant; label?: string }) {
+  const mapUrl = shop.lat && shop.lng
+    ? `https://www.google.com/maps/search/?api=1&query=${shop.lat},${shop.lng}`
+    : null;
+
+  const embedUrl = shop.lat && shop.lng
+    ? `https://www.openstreetmap.org/export/embed.html?bbox=${shop.lng - 0.005},${shop.lat - 0.003},${shop.lng + 0.005},${shop.lat + 0.003}&layer=mapnik&marker=${shop.lat},${shop.lng}`
+    : null;
+
+  return (
+    <div className="rounded-lg border border-border p-3 space-y-2">
+      {label && (
+        <Badge variant="secondary" className="text-xs mb-1">{label}</Badge>
+      )}
+      <div className="flex gap-3">
+        {shop.photo_url && (
+          <img
+            src={shop.photo_url}
+            alt={shop.name}
+            className="h-16 w-16 rounded-md object-cover flex-shrink-0"
+          />
+        )}
+        <div className="flex-1 min-w-0">
+          <h4 className="font-semibold text-sm">{shop.name}</h4>
+          <div className="mt-1 flex flex-wrap gap-1">
+            {shop.genre && (
+              <Badge variant="outline" className="text-xs">{shop.genre}</Badge>
+            )}
+            {shop.budget_name && (
+              <Badge variant="secondary" className="text-xs">{shop.budget_name}</Badge>
+            )}
+          </div>
+        </div>
+      </div>
+      <div className="text-xs text-muted-foreground space-y-0.5">
+        {shop.address && <p>{shop.address}</p>}
+        {shop.station_name && <p>最寄駅: {shop.station_name}</p>}
+        {shop.open && <p>営業: {shop.open}</p>}
+      </div>
+      <div className="flex items-center gap-3">
+        {shop.url && (
+          <a
+            href={shop.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-primary hover:underline"
+          >
+            お店の詳細
+          </a>
+        )}
+        {mapUrl && (
+          <a
+            href={mapUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-primary hover:underline"
+          >
+            Google Mapで開く
+          </a>
+        )}
+      </div>
+      {embedUrl && (
+        <iframe
+          src={embedUrl}
+          className="w-full h-40 rounded-md border border-border"
+          title={`${shop.name}の地図`}
+        />
+      )}
+    </div>
+  );
 }
 
 export function JoinPage() {
@@ -88,6 +161,10 @@ export function JoinPage() {
   const pending = event.participants.filter((p) => p.status === 'pending');
   const absent = event.participants.filter((p) => p.status === 'absent');
 
+  const venueSelections = event.venue_selections || [];
+  const primaryVenues = venueSelections.filter((v) => v.venue_type === 'primary');
+  const afterPartyVenues = venueSelections.filter((v) => v.venue_type === 'after_party');
+
   return (
     <div className="mx-auto max-w-2xl space-y-6 p-4">
       {/* イベント情報 */}
@@ -113,6 +190,38 @@ export function JoinPage() {
                 </div>
               ))}
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 一次会会場候補 */}
+      {primaryVenues.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">一次会候補</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {primaryVenues.map((v, i) => (
+              <VenueCard
+                key={v.id}
+                shop={v.restaurant}
+                label={primaryVenues.length > 1 ? `候補 ${i + 1}` : undefined}
+              />
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 二次会会場候補 */}
+      {afterPartyVenues.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">二次会候補</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {afterPartyVenues.map((v) => (
+              <VenueCard key={v.id} shop={v.restaurant} />
+            ))}
           </CardContent>
         </Card>
       )}

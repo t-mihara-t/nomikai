@@ -1,4 +1,4 @@
-import type { Event, EventWithParticipants, Participant, CandidateDate, CalculateResult, RestaurantSearchResult } from '@/types';
+import type { Event, EventWithParticipants, Participant, CandidateDate, CalculateResult, RestaurantSearchResult, VenueSelection, Restaurant } from '@/types';
 
 const API_BASE = '/api';
 
@@ -110,6 +110,22 @@ export const api = {
     if (options.lat) params.set('lat', options.lat.toString());
     if (options.lng) params.set('lng', options.lng.toString());
     return fetchJson(`${API_BASE}/restaurants?${params.toString()}`);
+  },
+
+  // Venue Selections
+  getVenues(eventId: number): Promise<VenueSelection[]> {
+    return fetchJson(`${API_BASE}/events/${eventId}/venues`);
+  },
+
+  addVenue(eventId: number, data: { venue_type: 'primary' | 'after_party'; restaurant: Restaurant }): Promise<VenueSelection> {
+    return fetchJson(`${API_BASE}/events/${eventId}/venues`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  deleteVenue(id: number): Promise<{ success: boolean }> {
+    return fetchJson(`${API_BASE}/venues/${id}`, { method: 'DELETE' });
   },
 
   // Calculate

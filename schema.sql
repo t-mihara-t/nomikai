@@ -33,3 +33,14 @@ CREATE TABLE IF NOT EXISTS participants (
 );
 
 CREATE INDEX IF NOT EXISTS idx_participants_event_id ON participants(event_id);
+
+CREATE TABLE IF NOT EXISTS venue_selections (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  event_id INTEGER NOT NULL,
+  venue_type TEXT NOT NULL CHECK (venue_type IN ('primary', 'after_party')),
+  restaurant_data TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_venue_selections_event_id ON venue_selections(event_id);
