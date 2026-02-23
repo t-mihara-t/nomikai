@@ -92,9 +92,23 @@ export const api = {
   },
 
   // Restaurants
-  searchRestaurants(keyword: string, count?: number): Promise<RestaurantSearchResult> {
-    const params = new URLSearchParams({ keyword });
-    if (count) params.set('count', count.toString());
+  searchRestaurants(options: {
+    keyword?: string;
+    count?: number;
+    range?: string;
+    budget?: string;
+    party_capacity?: number;
+    lat?: number;
+    lng?: number;
+  }): Promise<RestaurantSearchResult> {
+    const params = new URLSearchParams();
+    if (options.keyword) params.set('keyword', options.keyword);
+    if (options.count) params.set('count', options.count.toString());
+    if (options.range) params.set('range', options.range);
+    if (options.budget) params.set('budget', options.budget);
+    if (options.party_capacity) params.set('party_capacity', options.party_capacity.toString());
+    if (options.lat) params.set('lat', options.lat.toString());
+    if (options.lng) params.set('lng', options.lng.toString());
     return fetchJson(`${API_BASE}/restaurants?${params.toString()}`);
   },
 

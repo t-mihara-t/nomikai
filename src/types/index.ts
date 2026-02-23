@@ -53,6 +53,8 @@ export interface Restaurant {
   name: string;
   address: string;
   station_name: string;
+  lat: number;
+  lng: number;
   catch: string;
   open: string;
   budget_average: string;
@@ -61,6 +63,7 @@ export interface Restaurant {
   photo_url: string;
   url: string;
   capacity: number;
+  party_capacity: number;
   course: string;
   free_drink: string;
   free_food: string;
