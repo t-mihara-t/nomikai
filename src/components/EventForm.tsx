@@ -17,7 +17,6 @@ interface EventFormProps {
 
 export function EventForm({ onSubmit, loading }: EventFormProps) {
   const [name, setName] = useState('');
-  const [date, setDate] = useState('');
   const [hasAfterParty, setHasAfterParty] = useState(false);
   const [candidateDates, setCandidateDates] = useState<string[]>(['']);
   const [paypayId, setPaypayId] = useState('');
@@ -45,23 +44,25 @@ export function EventForm({ onSubmit, loading }: EventFormProps) {
       setError('イベント名を入力してください');
       return;
     }
-    if (!date) {
-      setError('日付を入力してください');
+
+    const filledDates = candidateDates.filter((d) => d.trim() !== '');
+    if (filledDates.length === 0) {
+      setError('候補日時を1つ以上入力してください');
       return;
     }
 
-    const filledDates = candidateDates.filter((d) => d.trim() !== '');
+    // 最初の候補日時から日付を自動導出
+    const firstDate = filledDates[0].split('T')[0];
 
     await onSubmit({
       name: name.trim(),
-      date,
+      date: firstDate,
       has_after_party: hasAfterParty,
-      candidate_dates: filledDates.length > 0 ? filledDates : undefined,
+      candidate_dates: filledDates,
       paypay_id: paypayId.trim() || undefined,
     });
 
     setName('');
-    setDate('');
     setHasAfterParty(false);
     setCandidateDates(['']);
     setPaypayId('');
@@ -81,15 +82,6 @@ export function EventForm({ onSubmit, loading }: EventFormProps) {
               placeholder="例: 歓迎会"
               value={name}
               onChange={(e) => setName(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="event-date">日付</Label>
-            <Input
-              id="event-date"
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
             />
           </div>
 

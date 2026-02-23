@@ -48,12 +48,20 @@ jobs:
           echo "database_id=$DB_ID" >> "$GITHUB_OUTPUT"
           echo "Database ID: $DB_ID"
 
-      - name: Run D1 migration
+      - name: Run D1 schema
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: d1 execute nomikai-db --remote --file=./schema.sql
+
+      - name: Run D1 migration
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: d1 execute nomikai-db --remote --file=./migration.sql
+        continue-on-error: true
 
       - name: Configure wrangler.toml with D1 binding
         run: |
