@@ -1,4 +1,4 @@
-import type { Event, EventWithParticipants, Participant, CandidateDate, CalculateResult } from '@/types';
+import type { Event, EventWithParticipants, Participant, CandidateDate, CalculateResult, RestaurantSearchResult } from '@/types';
 
 const API_BASE = '/api';
 
@@ -89,6 +89,13 @@ export const api = {
 
   deleteParticipant(id: number): Promise<{ success: boolean }> {
     return fetchJson(`${API_BASE}/participants/${id}`, { method: 'DELETE' });
+  },
+
+  // Restaurants
+  searchRestaurants(keyword: string, count?: number): Promise<RestaurantSearchResult> {
+    const params = new URLSearchParams({ keyword });
+    if (count) params.set('count', count.toString());
+    return fetchJson(`${API_BASE}/restaurants?${params.toString()}`);
   },
 
   // Calculate

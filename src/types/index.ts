@@ -47,3 +47,28 @@ export interface CalculateResult {
   total_collected: number;
   difference: number;
 }
+
+export interface Restaurant {
+  id: string;
+  name: string;
+  address: string;
+  station_name: string;
+  catch: string;
+  open: string;
+  budget_average: string;
+  budget_name: string;
+  genre: string;
+  photo_url: string;
+  url: string;
+  capacity: number;
+  course: string;
+  free_drink: string;
+  free_food: string;
+  private_room: string;
+  lunch: string;
+}
+
+export interface RestaurantSearchResult {
+  total: number;
+  shops: Restaurant[];
+}
