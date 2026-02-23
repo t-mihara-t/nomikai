@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 export function HomePage() {
   const { events, loading, error, refetch } = useEvents();
   const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const handleCreate = async (data: {
@@ -20,10 +21,13 @@ export function HomePage() {
     paypay_id?: string;
   }) => {
     setCreating(true);
+    setCreateError(null);
     try {
       const event = await api.createEvent(data);
       await refetch();
       navigate(`/events/${event.id}`);
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : '作成に失敗しました');
     } finally {
       setCreating(false);
     }
@@ -42,6 +46,9 @@ export function HomePage() {
         <p className="mt-2 text-muted-foreground">出欠管理と割り勘計算をかんたんに</p>
       </div>
 
+      {createError && (
+        <p className="text-sm text-destructive text-center">{createError}</p>
+      )}
       <EventForm onSubmit={handleCreate} loading={creating} />
 
       <div className="space-y-3">
