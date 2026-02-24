@@ -1,52 +1,71 @@
-import type { CalculateResult } from '@/types';
+import type { CalculateResult, Participant, ParticipantBreakdown } from '@/types';
 
 function roundTo100(value: number, mode: 'ceil' | 'floor'): number {
-  if (mode === 'ceil') {
-    return Math.ceil(value / 100) * 100;
-  }
-  return Math.floor(value / 100) * 100;
+  return mode === 'ceil' ? Math.ceil(value / 100) * 100 : Math.floor(value / 100) * 100;
 }
 
 export function calculateSplit(
   totalAmount: number,
-  drinkerCount: number,
-  nonDrinkerCount: number,
+  attending: Participant[],
   drinkerRatio: number,
+  kampaAmount: number,
   rounding: 'ceil' | 'floor'
 ): CalculateResult {
-  const totalPeople = drinkerCount + nonDrinkerCount;
-
-  if (totalPeople === 0) {
+  if (attending.length === 0) {
     return {
-      drinker_amount: 0,
-      non_drinker_amount: 0,
-      drinker_count: 0,
-      non_drinker_count: 0,
-      total_collected: 0,
-      difference: 0,
+      drinker_amount: 0, non_drinker_amount: 0,
+      drinker_count: 0, non_drinker_count: 0,
+      total_collected: 0, difference: 0,
+      kampa_amount: kampaAmount, adjusted_total: totalAmount - kampaAmount,
+      breakdowns: [],
     };
   }
 
-  let drinkerAmount: number;
-  let nonDrinkerAmount: number;
+  const adjustedTotal = totalAmount - kampaAmount;
 
-  if (nonDrinkerCount === 0) {
-    const raw = totalAmount / drinkerCount;
-    drinkerAmount = roundTo100(raw, rounding);
-    nonDrinkerAmount = 0;
-  } else if (drinkerCount === 0) {
-    const raw = totalAmount / nonDrinkerCount;
-    nonDrinkerAmount = roundTo100(raw, rounding);
-    drinkerAmount = 0;
-  } else {
-    const rawNonDrinker =
-      totalAmount / (drinkerRatio * drinkerCount + nonDrinkerCount);
-    nonDrinkerAmount = roundTo100(rawNonDrinker, rounding);
-    drinkerAmount = roundTo100(rawNonDrinker * drinkerRatio, rounding);
+  // Calculate weighted total
+  let totalWeight = 0;
+  const pWeights = attending.map((p) => {
+    const multiplier = p.multiplier || 1.0;
+    const discountRate = p.discount_rate || 0.0;
+    const drinkFactor = p.is_drinker ? drinkerRatio : 1.0;
+    const weight = multiplier * drinkFactor * (1 - discountRate);
+    totalWeight += weight;
+    return { ...p, multiplier, discountRate, drinkFactor, weight };
+  });
+
+  const basePerWeight = adjustedTotal / totalWeight;
+
+  const breakdowns: ParticipantBreakdown[] = [];
+  let totalCollected = 0;
+  let drinkerAmount = 0;
+  let nonDrinkerAmount = 0;
+  let drinkerCount = 0;
+  let nonDrinkerCount = 0;
+
+  for (const pw of pWeights) {
+    const rawBeforeDiscount = basePerWeight * pw.multiplier * pw.drinkFactor;
+    const discountAmount = rawBeforeDiscount * pw.discountRate;
+    const rawFinal = rawBeforeDiscount - discountAmount;
+    const finalAmount = roundTo100(rawFinal, rounding);
+
+    breakdowns.push({
+      participant_id: pw.id,
+      name: pw.name,
+      base_amount: Math.round(basePerWeight),
+      multiplier: pw.multiplier,
+      is_drinker: pw.is_drinker,
+      drinker_ratio: pw.drinkFactor,
+      after_multiplier: Math.round(rawBeforeDiscount),
+      discount_rate: pw.discountRate,
+      discount_amount: Math.round(discountAmount),
+      final_amount: finalAmount,
+    });
+
+    totalCollected += finalAmount;
+    if (pw.is_drinker) { drinkerCount++; drinkerAmount = finalAmount; }
+    else { nonDrinkerCount++; nonDrinkerAmount = finalAmount; }
   }
-
-  const totalCollected =
-    drinkerAmount * drinkerCount + nonDrinkerAmount * nonDrinkerCount;
 
   return {
     drinker_amount: drinkerAmount,
@@ -55,6 +74,9 @@ export function calculateSplit(
     non_drinker_count: nonDrinkerCount,
     total_collected: totalCollected,
     difference: totalCollected - totalAmount,
+    kampa_amount: kampaAmount,
+    adjusted_total: adjustedTotal,
+    breakdowns,
   };
 }
 

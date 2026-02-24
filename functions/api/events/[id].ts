@@ -64,12 +64,29 @@ export const onRequestGet: PagesFunction<Env> = async ({ params, env }) => {
     // participant_responses table may not exist yet
   }
 
+  // Check for after-party event
+  let afterPartyEvent = null;
+  try {
+    const apEvent = await env.DB.prepare('SELECT * FROM events WHERE parent_event_id = ?')
+      .bind(id)
+      .first();
+    if (apEvent) {
+      const { results: apParticipants } = await env.DB.prepare(
+        'SELECT * FROM participants WHERE event_id = ? ORDER BY created_at ASC'
+      ).bind(apEvent.id).all();
+      afterPartyEvent = { ...apEvent, participants: apParticipants, venue_selections: [], participant_responses: [] };
+    }
+  } catch {
+    // parent_event_id column may not exist yet
+  }
+
   return Response.json({
     ...event,
     participants,
     candidate_dates: candidateDates,
     venue_selections: venueSelections,
     participant_responses: participantResponses,
+    after_party_event: afterPartyEvent,
   });
 };
 
@@ -82,6 +99,7 @@ export const onRequestPut: PagesFunction<Env> = async ({ params, request, env })
     drinker_ratio?: number;
     has_after_party?: boolean;
     paypay_id?: string;
+    kampa_amount?: number;
   }>();
 
   const event = await env.DB.prepare('SELECT * FROM events WHERE id = ?')
@@ -92,7 +110,6 @@ export const onRequestPut: PagesFunction<Env> = async ({ params, request, env })
     return Response.json({ error: 'Event not found' }, { status: 404 });
   }
 
-  // Try with has_after_party, fall back without
   let result: Record<string, unknown> | null = null;
   try {
     result = await env.DB.prepare(
@@ -102,7 +119,8 @@ export const onRequestPut: PagesFunction<Env> = async ({ params, request, env })
         total_amount = COALESCE(?, total_amount),
         drinker_ratio = COALESCE(?, drinker_ratio),
         has_after_party = COALESCE(?, has_after_party),
-        paypay_id = COALESCE(?, paypay_id)
+        paypay_id = COALESCE(?, paypay_id),
+        kampa_amount = COALESCE(?, kampa_amount)
       WHERE id = ? RETURNING *`
     )
       .bind(
@@ -112,6 +130,7 @@ export const onRequestPut: PagesFunction<Env> = async ({ params, request, env })
         body.drinker_ratio ?? null,
         body.has_after_party !== undefined ? (body.has_after_party ? 1 : 0) : null,
         body.paypay_id ?? null,
+        body.kampa_amount ?? null,
         id
       )
       .first();

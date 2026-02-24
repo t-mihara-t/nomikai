@@ -42,7 +42,7 @@ export const api = {
 
   updateEvent(
     id: number,
-    data: Partial<Pick<Event, 'name' | 'date' | 'total_amount' | 'drinker_ratio' | 'has_after_party' | 'paypay_id'>>
+    data: Partial<Pick<Event, 'name' | 'date' | 'total_amount' | 'drinker_ratio' | 'has_after_party' | 'paypay_id' | 'kampa_amount'>>
   ): Promise<Event> {
     return fetchJson(`${API_BASE}/events/${id}`, {
       method: 'PUT',
@@ -79,7 +79,7 @@ export const api = {
 
   updateParticipant(
     id: number,
-    data: Partial<Pick<Participant, 'name' | 'status' | 'is_drinker' | 'paid_status' | 'paypay_id'>>
+    data: Partial<Pick<Participant, 'name' | 'status' | 'is_drinker' | 'paid_status' | 'paypay_id' | 'multiplier' | 'discount_rate' | 'join_after_party'>>
   ): Promise<Participant> {
     return fetchJson(`${API_BASE}/participants/${id}`, {
       method: 'PUT',
@@ -149,10 +149,32 @@ export const api = {
   // Calculate
   calculate(
     eventId: number,
-    data: { total_amount: number; drinker_ratio: number; rounding: 'ceil' | 'floor' }
+    data: { total_amount: number; drinker_ratio: number; kampa_amount: number; rounding: 'ceil' | 'floor' }
   ): Promise<CalculateResult> {
     return fetchJson(`${API_BASE}/events/${eventId}/calculate`, {
       method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  // After-party event
+  createAfterPartyEvent(
+    parentEventId: number,
+    data: { participant_ids: number[] }
+  ): Promise<Event> {
+    return fetchJson(`${API_BASE}/events/${parentEventId}/after-party`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  // Bulk update participants
+  bulkUpdateParticipants(
+    eventId: number,
+    data: { participant_ids: number[]; updates: Partial<Pick<Participant, 'status' | 'is_drinker'>> }
+  ): Promise<{ success: boolean }> {
+    return fetchJson(`${API_BASE}/events/${eventId}/participants/bulk`, {
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   },

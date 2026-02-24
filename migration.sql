@@ -42,3 +42,12 @@ CREATE TABLE IF NOT EXISTS participant_responses (
 
 CREATE INDEX IF NOT EXISTS idx_participant_responses_participant ON participant_responses(participant_id);
 CREATE INDEX IF NOT EXISTS idx_participant_responses_date ON participant_responses(candidate_date_id);
+
+-- Add kampa_amount and parent_event_id to events
+ALTER TABLE events ADD COLUMN kampa_amount INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE events ADD COLUMN parent_event_id INTEGER REFERENCES events(id) ON DELETE SET NULL;
+
+-- Add multiplier, discount_rate, join_after_party to participants
+ALTER TABLE participants ADD COLUMN multiplier REAL NOT NULL DEFAULT 1.0;
+ALTER TABLE participants ADD COLUMN discount_rate REAL NOT NULL DEFAULT 0.0;
+ALTER TABLE participants ADD COLUMN join_after_party INTEGER NOT NULL DEFAULT 0;

@@ -6,11 +6,14 @@ export const onRequestPut: PagesFunction<Env> = async ({ params, request, env })
   const id = params.id;
   const body = await request.json<{
     name?: string;
-    status?: 'attending' | 'absent';
+    status?: 'attending' | 'absent' | 'pending';
     is_drinker?: boolean;
     amount_to_pay?: number;
     paid_status?: boolean;
     paypay_id?: string;
+    multiplier?: number;
+    discount_rate?: number;
+    join_after_party?: boolean;
   }>();
 
   const participant = await env.DB.prepare('SELECT * FROM participants WHERE id = ?')
@@ -21,28 +24,58 @@ export const onRequestPut: PagesFunction<Env> = async ({ params, request, env })
     return Response.json({ error: 'Participant not found' }, { status: 404 });
   }
 
-  const result = await env.DB.prepare(
-    `UPDATE participants SET
-      name = COALESCE(?, name),
-      status = COALESCE(?, status),
-      is_drinker = COALESCE(?, is_drinker),
-      amount_to_pay = COALESCE(?, amount_to_pay),
-      paid_status = COALESCE(?, paid_status),
-      paypay_id = COALESCE(?, paypay_id)
-    WHERE id = ? RETURNING *`
-  )
-    .bind(
-      body.name || null,
-      body.status || null,
-      body.is_drinker !== undefined ? (body.is_drinker ? 1 : 0) : null,
-      body.amount_to_pay ?? null,
-      body.paid_status !== undefined ? (body.paid_status ? 1 : 0) : null,
-      body.paypay_id ?? null,
-      id
+  try {
+    const result = await env.DB.prepare(
+      `UPDATE participants SET
+        name = COALESCE(?, name),
+        status = COALESCE(?, status),
+        is_drinker = COALESCE(?, is_drinker),
+        amount_to_pay = COALESCE(?, amount_to_pay),
+        paid_status = COALESCE(?, paid_status),
+        paypay_id = COALESCE(?, paypay_id),
+        multiplier = COALESCE(?, multiplier),
+        discount_rate = COALESCE(?, discount_rate),
+        join_after_party = COALESCE(?, join_after_party)
+      WHERE id = ? RETURNING *`
     )
-    .first();
-
-  return Response.json(result);
+      .bind(
+        body.name || null,
+        body.status || null,
+        body.is_drinker !== undefined ? (body.is_drinker ? 1 : 0) : null,
+        body.amount_to_pay ?? null,
+        body.paid_status !== undefined ? (body.paid_status ? 1 : 0) : null,
+        body.paypay_id ?? null,
+        body.multiplier ?? null,
+        body.discount_rate ?? null,
+        body.join_after_party !== undefined ? (body.join_after_party ? 1 : 0) : null,
+        id
+      )
+      .first();
+    return Response.json(result);
+  } catch {
+    // Fallback if new columns don't exist yet
+    const result = await env.DB.prepare(
+      `UPDATE participants SET
+        name = COALESCE(?, name),
+        status = COALESCE(?, status),
+        is_drinker = COALESCE(?, is_drinker),
+        amount_to_pay = COALESCE(?, amount_to_pay),
+        paid_status = COALESCE(?, paid_status),
+        paypay_id = COALESCE(?, paypay_id)
+      WHERE id = ? RETURNING *`
+    )
+      .bind(
+        body.name || null,
+        body.status || null,
+        body.is_drinker !== undefined ? (body.is_drinker ? 1 : 0) : null,
+        body.amount_to_pay ?? null,
+        body.paid_status !== undefined ? (body.paid_status ? 1 : 0) : null,
+        body.paypay_id ?? null,
+        id
+      )
+      .first();
+    return Response.json(result);
+  }
 };
 
 export const onRequestDelete: PagesFunction<Env> = async ({ params, env }) => {

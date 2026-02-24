@@ -7,6 +7,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ params, request, env }
   const body = await request.json<{
     total_amount: number;
     drinker_ratio: number;
+    kampa_amount?: number;
     rounding: 'ceil' | 'floor';
   }>();
 
@@ -18,6 +19,13 @@ export const onRequestPost: PagesFunction<Env> = async ({ params, request, env }
     return Response.json({ error: 'drinker_ratio must be >= 1.0' }, { status: 400 });
   }
 
+  const kampaAmount = body.kampa_amount || 0;
+  const adjustedTotal = body.total_amount - kampaAmount;
+
+  if (adjustedTotal <= 0) {
+    return Response.json({ error: 'カンパ額が合計金額以上です' }, { status: 400 });
+  }
+
   const { results: participants } = await env.DB.prepare(
     "SELECT * FROM participants WHERE event_id = ? AND status = 'attending'"
   )
@@ -25,74 +33,82 @@ export const onRequestPost: PagesFunction<Env> = async ({ params, request, env }
     .all();
 
   if (participants.length === 0) {
-    return Response.json(
-      { error: 'No attending participants' },
-      { status: 400 }
-    );
+    return Response.json({ error: 'No attending participants' }, { status: 400 });
   }
 
-  const drinkers = participants.filter((p) => p.is_drinker);
-  const nonDrinkers = participants.filter((p) => !p.is_drinker);
-  const drinkerCount = drinkers.length;
-  const nonDrinkerCount = nonDrinkers.length;
+  // Calculate weighted total: each participant's weight = multiplier * drinkFactor * (1 - discountRate)
+  let totalWeight = 0;
+  const pWeights: { id: number; name: string; multiplier: number; is_drinker: boolean; discount_rate: number; weight: number }[] = [];
 
-  let drinkerAmount: number;
-  let nonDrinkerAmount: number;
-
-  if (nonDrinkerCount === 0) {
-    // All drinkers
-    const raw = body.total_amount / drinkerCount;
-    drinkerAmount = roundTo100(raw, body.rounding);
-    nonDrinkerAmount = 0;
-  } else if (drinkerCount === 0) {
-    // All non-drinkers
-    const raw = body.total_amount / nonDrinkerCount;
-    nonDrinkerAmount = roundTo100(raw, body.rounding);
-    drinkerAmount = 0;
-  } else {
-    // Mixed: total = drinkerAmount * drinkerCount + nonDrinkerAmount * nonDrinkerCount
-    // drinkerAmount = ratio * nonDrinkerAmount
-    // total = ratio * nonDrinkerAmount * drinkerCount + nonDrinkerAmount * nonDrinkerCount
-    // nonDrinkerAmount = total / (ratio * drinkerCount + nonDrinkerCount)
-    const rawNonDrinker =
-      body.total_amount / (body.drinker_ratio * drinkerCount + nonDrinkerCount);
-    nonDrinkerAmount = roundTo100(rawNonDrinker, body.rounding);
-    drinkerAmount = roundTo100(rawNonDrinker * body.drinker_ratio, body.rounding);
+  for (const p of participants) {
+    const multiplier = (p.multiplier as number) || 1.0;
+    const discountRate = (p.discount_rate as number) || 0.0;
+    const isDrinker = !!p.is_drinker;
+    const drinkFactor = isDrinker ? body.drinker_ratio : 1.0;
+    const weight = multiplier * drinkFactor * (1 - discountRate);
+    totalWeight += weight;
+    pWeights.push({ id: p.id as number, name: p.name as string, multiplier, is_drinker: isDrinker, discount_rate: discountRate, weight });
   }
 
-  const totalCollected = drinkerAmount * drinkerCount + nonDrinkerAmount * nonDrinkerCount;
-  const difference = totalCollected - body.total_amount;
+  const basePerWeight = adjustedTotal / totalWeight;
+
+  const breakdowns: {
+    participant_id: number; name: string; base_amount: number; multiplier: number;
+    is_drinker: boolean; drinker_ratio: number; after_multiplier: number;
+    discount_rate: number; discount_amount: number; final_amount: number;
+  }[] = [];
+
+  const batch = [];
+  let totalCollected = 0;
+  let drinkerAmount = 0;
+  let nonDrinkerAmount = 0;
+  let drinkerCount = 0;
+  let nonDrinkerCount = 0;
+
+  for (const pw of pWeights) {
+    const drinkFactor = pw.is_drinker ? body.drinker_ratio : 1.0;
+    const rawBeforeDiscount = basePerWeight * pw.multiplier * drinkFactor;
+    const discountAmount = rawBeforeDiscount * pw.discount_rate;
+    const rawFinal = rawBeforeDiscount - discountAmount;
+    const finalAmount = roundTo100(rawFinal, body.rounding);
+
+    breakdowns.push({
+      participant_id: pw.id, name: pw.name,
+      base_amount: Math.round(basePerWeight),
+      multiplier: pw.multiplier, is_drinker: pw.is_drinker,
+      drinker_ratio: drinkFactor,
+      after_multiplier: Math.round(rawBeforeDiscount),
+      discount_rate: pw.discount_rate,
+      discount_amount: Math.round(discountAmount),
+      final_amount: finalAmount,
+    });
+
+    totalCollected += finalAmount;
+    if (pw.is_drinker) { drinkerCount++; drinkerAmount = finalAmount; }
+    else { nonDrinkerCount++; nonDrinkerAmount = finalAmount; }
+
+    batch.push(env.DB.prepare('UPDATE participants SET amount_to_pay = ? WHERE id = ?').bind(finalAmount, pw.id));
+  }
 
   // Update event
-  await env.DB.prepare(
-    'UPDATE events SET total_amount = ?, drinker_ratio = ? WHERE id = ?'
-  )
-    .bind(body.total_amount, body.drinker_ratio, eventId)
-    .run();
-
-  // Update each participant's amount_to_pay
-  const batch = participants.map((p) => {
-    const amount = p.is_drinker ? drinkerAmount : nonDrinkerAmount;
-    return env.DB.prepare(
-      'UPDATE participants SET amount_to_pay = ? WHERE id = ?'
-    ).bind(amount, p.id);
-  });
+  try {
+    await env.DB.prepare('UPDATE events SET total_amount = ?, drinker_ratio = ?, kampa_amount = ? WHERE id = ?')
+      .bind(body.total_amount, body.drinker_ratio, kampaAmount, eventId).run();
+  } catch {
+    await env.DB.prepare('UPDATE events SET total_amount = ?, drinker_ratio = ? WHERE id = ?')
+      .bind(body.total_amount, body.drinker_ratio, eventId).run();
+  }
 
   await env.DB.batch(batch);
 
   return Response.json({
-    drinker_amount: drinkerAmount,
-    non_drinker_amount: nonDrinkerAmount,
-    drinker_count: drinkerCount,
-    non_drinker_count: nonDrinkerCount,
-    total_collected: totalCollected,
-    difference,
+    drinker_amount: drinkerAmount, non_drinker_amount: nonDrinkerAmount,
+    drinker_count: drinkerCount, non_drinker_count: nonDrinkerCount,
+    total_collected: totalCollected, difference: totalCollected - body.total_amount,
+    kampa_amount: kampaAmount, adjusted_total: adjustedTotal, breakdowns,
   });
 };
 
 function roundTo100(value: number, mode: 'ceil' | 'floor'): number {
-  if (mode === 'ceil') {
-    return Math.ceil(value / 100) * 100;
-  }
-  return Math.floor(value / 100) * 100;
+  return mode === 'ceil' ? Math.ceil(value / 100) * 100 : Math.floor(value / 100) * 100;
 }

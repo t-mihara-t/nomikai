@@ -61,7 +61,7 @@ export function useCalculate() {
   const calculate = useCallback(
     async (
       eventId: number,
-      data: { total_amount: number; drinker_ratio: number; rounding: 'ceil' | 'floor' }
+      data: { total_amount: number; drinker_ratio: number; kampa_amount: number; rounding: 'ceil' | 'floor' }
     ) => {
       try {
         setLoading(true);

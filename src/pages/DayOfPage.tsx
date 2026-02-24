@@ -7,7 +7,7 @@ import { AdminPanel } from '@/components/AdminPanel';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import type { Restaurant } from '@/types';
+import type { Restaurant, EventWithParticipants } from '@/types';
 
 function VenueCard({ shop, label }: { shop: Restaurant; label?: string }) {
   const mapUrl = shop.lat && shop.lng
@@ -51,6 +51,8 @@ function VenueCard({ shop, label }: { shop: Restaurant; label?: string }) {
   );
 }
 
+type TabType = 'primary' | 'after_party';
+
 export function DayOfPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -58,6 +60,8 @@ export function DayOfPage() {
   const { event, loading, error, refetch } = useEventDetail(eventId);
   const { calculate, loading: calcLoading } = useCalculate();
   const [settlementCopied, setSettlementCopied] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabType>('primary');
+  const [creatingAfterParty, setCreatingAfterParty] = useState(false);
 
   if (loading) {
     return (
@@ -79,14 +83,13 @@ export function DayOfPage() {
   const venueSelections = event.venue_selections || [];
   const primaryVenues = venueSelections.filter((v) => v.venue_type === 'primary');
   const afterPartyVenues = venueSelections.filter((v) => v.venue_type === 'after_party');
+  const afterPartyEvent = event.after_party_event;
+  const hasAfterParty = event.has_after_party;
+  const showTabs = hasAfterParty || afterPartyEvent;
 
-  const handleToggleStatus = async (
-    participantId: number,
-    currentStatus: 'attending' | 'absent' | 'pending'
-  ) => {
-    const nextStatus = currentStatus === 'attending' ? 'absent'
-      : currentStatus === 'absent' ? 'pending'
-      : 'attending';
+  // Handlers for primary event participants
+  const handleToggleStatus = async (participantId: number, currentStatus: 'attending' | 'absent' | 'pending') => {
+    const nextStatus = currentStatus === 'attending' ? 'absent' : currentStatus === 'absent' ? 'pending' : 'attending';
     await api.updateParticipant(participantId, { status: nextStatus });
     await refetch();
   };
@@ -102,47 +105,103 @@ export function DayOfPage() {
     await refetch();
   };
 
-  const handleCalculate = async (data: {
-    total_amount: number;
-    drinker_ratio: number;
-    rounding: 'ceil' | 'floor';
-  }) => {
+  const handleUpdateMultiplier = async (participantId: number, multiplier: number) => {
+    await api.updateParticipant(participantId, { multiplier });
+    await refetch();
+  };
+
+  const handleUpdateDiscount = async (participantId: number, discountRate: number) => {
+    await api.updateParticipant(participantId, { discount_rate: discountRate });
+    await refetch();
+  };
+
+  const handleToggleAfterParty = async (participantId: number, current: boolean) => {
+    await api.updateParticipant(participantId, { join_after_party: !current });
+    await refetch();
+  };
+
+  const handleBulkUpdate = async (updates: { status?: 'attending' | 'absent' | 'pending'; is_drinker?: boolean }) => {
+    const ids = event.participants.map((p) => p.id);
+    if (ids.length === 0) return;
+    await api.bulkUpdateParticipants(event.id, { participant_ids: ids, updates });
+    await refetch();
+  };
+
+  const handleCalculate = async (data: { total_amount: number; drinker_ratio: number; kampa_amount: number; rounding: 'ceil' | 'floor' }) => {
     const result = await calculate(event.id, data);
     if (result) await refetch();
     return result;
   };
 
-  const generateSettlementText = () => {
-    const attending = event.participants.filter((p) => p.status === 'attending');
-    const venueName = primaryVenues.length > 0 ? primaryVenues[0].restaurant.name : '未定';
+  const handleCreateAfterParty = async () => {
+    const selected = event.participants.filter((p) => p.join_after_party && p.status === 'attending');
+    if (selected.length === 0) {
+      alert('二次会に参加する人を選択してください（参加者一覧の「二次会」ボタンで選択）');
+      return;
+    }
+    setCreatingAfterParty(true);
+    try {
+      await api.createAfterPartyEvent(event.id, { participant_ids: selected.map((p) => p.id) });
+      await refetch();
+      setActiveTab('after_party');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '二次会イベントの作成に失敗しました');
+    } finally {
+      setCreatingAfterParty(false);
+    }
+  };
+
+  // After-party event handlers (re-use same pattern)
+  const handleAPToggleStatus = async (participantId: number, currentStatus: 'attending' | 'absent' | 'pending') => {
+    const nextStatus = currentStatus === 'attending' ? 'absent' : currentStatus === 'absent' ? 'pending' : 'attending';
+    await api.updateParticipant(participantId, { status: nextStatus });
+    await refetch();
+  };
+
+  const handleAPCalculate = async (data: { total_amount: number; drinker_ratio: number; kampa_amount: number; rounding: 'ceil' | 'floor' }) => {
+    if (!afterPartyEvent) return null;
+    const result = await calculate(afterPartyEvent.id, data);
+    if (result) await refetch();
+    return result;
+  };
+
+  const generateSettlementText = (ev: EventWithParticipants, label?: string) => {
+    const attending = ev.participants.filter((p) => p.status === 'attending');
+    const venueName = label === '二次会'
+      ? (afterPartyVenues.length > 0 ? afterPartyVenues[0].restaurant.name : '未定')
+      : (primaryVenues.length > 0 ? primaryVenues[0].restaurant.name : '未定');
     const lines = [
-      `【飲み会精算のお知らせ】`,
+      `【${label || '飲み会'}精算のお知らせ】`,
       ``,
-      `${event.name}`,
-      `日時: ${event.date}`,
+      `${ev.name}`,
+      `日時: ${ev.date}`,
       `会場: ${venueName}`,
       ``,
     ];
 
-    if (event.total_amount) {
-      lines.push(`合計金額: ${event.total_amount.toLocaleString()}円`);
+    if (ev.total_amount) {
+      lines.push(`合計金額: ${ev.total_amount.toLocaleString()}円`);
+      if (ev.kampa_amount > 0) {
+        lines.push(`カンパ: -${ev.kampa_amount.toLocaleString()}円`);
+      }
       lines.push(`参加者: ${attending.length}名`);
       lines.push(``);
 
-      const drinkers = attending.filter((p) => p.is_drinker && p.amount_to_pay != null);
-      const nonDrinkers = attending.filter((p) => !p.is_drinker && p.amount_to_pay != null);
-
-      if (drinkers.length > 0 && drinkers[0].amount_to_pay != null) {
-        lines.push(`飲む人: ${drinkers[0].amount_to_pay.toLocaleString()}円`);
-      }
-      if (nonDrinkers.length > 0 && nonDrinkers[0].amount_to_pay != null) {
-        lines.push(`飲まない人: ${nonDrinkers[0].amount_to_pay.toLocaleString()}円`);
-      }
+      // Show individual amounts
+      attending.forEach((p) => {
+        if (p.amount_to_pay != null) {
+          const extras = [];
+          if (p.multiplier !== 1.0) extras.push(`${p.multiplier}倍`);
+          if (p.discount_rate > 0) extras.push(`${Math.round(p.discount_rate * 100)}%OFF`);
+          const suffix = extras.length > 0 ? ` (${extras.join(', ')})` : '';
+          lines.push(`${p.name}: ${p.amount_to_pay.toLocaleString()}円${suffix}`);
+        }
+      });
       lines.push(``);
     }
 
-    if (event.paypay_id) {
-      lines.push(`PayPay ID: ${event.paypay_id}`);
+    if (ev.paypay_id) {
+      lines.push(`PayPay ID: ${ev.paypay_id}`);
       lines.push(``);
     }
 
@@ -150,8 +209,8 @@ export function DayOfPage() {
     return lines.join('\n');
   };
 
-  const handleCopySettlement = async () => {
-    const text = generateSettlementText();
+  const handleCopySettlement = async (ev: EventWithParticipants, label?: string) => {
+    const text = generateSettlementText(ev, label);
     await navigator.clipboard.writeText(text);
     setSettlementCopied(true);
     setTimeout(() => setSettlementCopied(false), 2000);
@@ -168,58 +227,161 @@ export function DayOfPage() {
         </div>
       </div>
 
-      {/* 会場情報 */}
-      {primaryVenues.length > 0 && (
-        <Card>
-          <CardHeader><CardTitle className="text-lg">一次会会場</CardTitle></CardHeader>
-          <CardContent className="space-y-3">
-            {primaryVenues.map((v, i) => (
-              <VenueCard key={v.id} shop={v.restaurant} label={primaryVenues.length > 1 ? `候補 ${i + 1}` : undefined} />
-            ))}
-          </CardContent>
-        </Card>
+      {/* Tabs for primary/after-party */}
+      {showTabs && (
+        <div className="flex gap-2 border-b border-border pb-2">
+          <Button
+            variant={activeTab === 'primary' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setActiveTab('primary')}
+          >
+            一次会
+          </Button>
+          <Button
+            variant={activeTab === 'after_party' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setActiveTab('after_party')}
+          >
+            二次会
+            {afterPartyEvent && <span className="ml-1 text-xs opacity-70">({afterPartyEvent.participants.length}名)</span>}
+          </Button>
+        </div>
       )}
-      {afterPartyVenues.length > 0 && (
-        <Card>
-          <CardHeader><CardTitle className="text-lg">二次会会場</CardTitle></CardHeader>
-          <CardContent className="space-y-3">
-            {afterPartyVenues.map((v) => (<VenueCard key={v.id} shop={v.restaurant} />))}
-          </CardContent>
-        </Card>
+
+      {/* ===== PRIMARY TAB ===== */}
+      {activeTab === 'primary' && (
+        <>
+          {/* 会場情報 */}
+          {primaryVenues.length > 0 && (
+            <Card>
+              <CardHeader><CardTitle className="text-lg">一次会会場</CardTitle></CardHeader>
+              <CardContent className="space-y-3">
+                {primaryVenues.map((v, i) => (
+                  <VenueCard key={v.id} shop={v.restaurant} label={primaryVenues.length > 1 ? `候補 ${i + 1}` : undefined} />
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* 出欠確認 */}
+          <ParticipantList
+            participants={event.participants}
+            eventPaypayId={event.paypay_id}
+            showAfterPartyCheck={hasAfterParty}
+            onToggleStatus={handleToggleStatus}
+            onTogglePaid={handleTogglePaid}
+            onDelete={handleDeleteParticipant}
+            onUpdateMultiplier={handleUpdateMultiplier}
+            onUpdateDiscount={handleUpdateDiscount}
+            onToggleAfterParty={handleToggleAfterParty}
+            onBulkUpdate={handleBulkUpdate}
+          />
+
+          {/* 二次会作成ボタン */}
+          {hasAfterParty && !afterPartyEvent && (
+            <Card>
+              <CardContent className="p-4 space-y-2">
+                <p className="text-sm text-muted-foreground">
+                  「二次会」ボタンでチェックした参加者を二次会イベントに引き継ぎます
+                  ({event.participants.filter((p) => p.join_after_party && p.status === 'attending').length}名選択中)
+                </p>
+                <Button onClick={handleCreateAfterParty} disabled={creatingAfterParty} className="w-full">
+                  {creatingAfterParty ? '作成中...' : '二次会イベントを作成'}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* 精算設定 */}
+          <AdminPanel
+            eventId={event.id}
+            participants={event.participants}
+            currentTotalAmount={event.total_amount}
+            currentDrinkerRatio={event.drinker_ratio}
+            currentKampaAmount={event.kampa_amount}
+            onCalculate={handleCalculate}
+            loading={calcLoading}
+          />
+
+          {/* 精算テキスト生成 */}
+          {event.total_amount && event.participants.some((p) => p.amount_to_pay != null) && (
+            <Card>
+              <CardHeader><CardTitle className="text-lg">精算テキスト生成</CardTitle></CardHeader>
+              <CardContent className="space-y-3">
+                <pre className="whitespace-pre-wrap text-xs bg-muted rounded-lg p-3 border border-border">
+                  {generateSettlementText(event, '一次会')}
+                </pre>
+                <Button onClick={() => handleCopySettlement(event, '一次会')} variant="outline" className="w-full">
+                  {settlementCopied ? 'コピー済み！' : 'テキストをコピー'}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+        </>
       )}
 
-      {/* 出欠確認 */}
-      <ParticipantList
-        participants={event.participants}
-        eventPaypayId={event.paypay_id}
-        onToggleStatus={handleToggleStatus}
-        onTogglePaid={handleTogglePaid}
-        onDelete={handleDeleteParticipant}
-      />
+      {/* ===== AFTER-PARTY TAB ===== */}
+      {activeTab === 'after_party' && (
+        <>
+          {afterPartyVenues.length > 0 && (
+            <Card>
+              <CardHeader><CardTitle className="text-lg">二次会会場</CardTitle></CardHeader>
+              <CardContent className="space-y-3">
+                {afterPartyVenues.map((v) => (<VenueCard key={v.id} shop={v.restaurant} />))}
+              </CardContent>
+            </Card>
+          )}
 
-      {/* 精算設定 */}
-      <AdminPanel
-        eventId={event.id}
-        participants={event.participants}
-        currentTotalAmount={event.total_amount}
-        currentDrinkerRatio={event.drinker_ratio}
-        onCalculate={handleCalculate}
-        loading={calcLoading}
-      />
+          {afterPartyEvent ? (
+            <>
+              <ParticipantList
+                participants={afterPartyEvent.participants}
+                eventPaypayId={afterPartyEvent.paypay_id || event.paypay_id}
+                onToggleStatus={handleAPToggleStatus}
+                onTogglePaid={async (pid, cur) => { await api.updateParticipant(pid, { paid_status: !cur }); await refetch(); }}
+                onDelete={async (pid) => { if (confirm('削除しますか？')) { await api.deleteParticipant(pid); await refetch(); } }}
+                onUpdateMultiplier={async (pid, m) => { await api.updateParticipant(pid, { multiplier: m }); await refetch(); }}
+                onUpdateDiscount={async (pid, d) => { await api.updateParticipant(pid, { discount_rate: d }); await refetch(); }}
+                onBulkUpdate={async (updates) => {
+                  const ids = afterPartyEvent.participants.map((p) => p.id);
+                  if (ids.length > 0) { await api.bulkUpdateParticipants(afterPartyEvent.id, { participant_ids: ids, updates }); await refetch(); }
+                }}
+              />
 
-      {/* 精算テキスト生成 */}
-      {event.total_amount && event.participants.some((p) => p.amount_to_pay != null) && (
-        <Card>
-          <CardHeader><CardTitle className="text-lg">精算テキスト生成</CardTitle></CardHeader>
-          <CardContent className="space-y-3">
-            <pre className="whitespace-pre-wrap text-xs bg-muted rounded-lg p-3 border border-border">
-              {generateSettlementText()}
-            </pre>
-            <Button onClick={handleCopySettlement} variant="outline" className="w-full">
-              {settlementCopied ? 'コピー済み！' : 'テキストをコピー'}
-            </Button>
-          </CardContent>
-        </Card>
+              <AdminPanel
+                eventId={afterPartyEvent.id}
+                participants={afterPartyEvent.participants}
+                currentTotalAmount={afterPartyEvent.total_amount}
+                currentDrinkerRatio={afterPartyEvent.drinker_ratio}
+                currentKampaAmount={afterPartyEvent.kampa_amount}
+                onCalculate={handleAPCalculate}
+                loading={calcLoading}
+              />
+
+              {afterPartyEvent.total_amount && afterPartyEvent.participants.some((p) => p.amount_to_pay != null) && (
+                <Card>
+                  <CardHeader><CardTitle className="text-lg">二次会精算テキスト</CardTitle></CardHeader>
+                  <CardContent className="space-y-3">
+                    <pre className="whitespace-pre-wrap text-xs bg-muted rounded-lg p-3 border border-border">
+                      {generateSettlementText(afterPartyEvent, '二次会')}
+                    </pre>
+                    <Button onClick={() => handleCopySettlement(afterPartyEvent, '二次会')} variant="outline" className="w-full">
+                      {settlementCopied ? 'コピー済み！' : 'テキストをコピー'}
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+            </>
+          ) : (
+            <Card>
+              <CardContent className="p-6 text-center space-y-3">
+                <p className="text-muted-foreground">二次会イベントはまだ作成されていません</p>
+                <p className="text-sm text-muted-foreground">一次会タブで「二次会」ボタンでメンバーを選択してから作成してください</p>
+                <Button variant="outline" onClick={() => setActiveTab('primary')}>一次会タブに戻る</Button>
+              </CardContent>
+            </Card>
+          )}
+        </>
       )}
     </div>
   );
