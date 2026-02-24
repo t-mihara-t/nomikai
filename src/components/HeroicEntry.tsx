@@ -54,13 +54,6 @@ export function HeroicEntry({ arrival, drinkOrders, onDismiss, onConfirmOrder }:
 
         {/* Main content */}
         <div className="relative z-10 space-y-6 p-6">
-          {/* Title flash */}
-          <div className="heroic-flash">
-            <p className="text-yellow-400 text-sm font-bold tracking-widest uppercase heroic-tracking">
-              HEROIC ENTRY
-            </p>
-          </div>
-
           {/* Name - large dynamic typography */}
           <div className="heroic-name-container">
             <h1 className="text-5xl font-black text-white heroic-name-text">

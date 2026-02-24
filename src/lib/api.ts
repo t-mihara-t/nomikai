@@ -1,4 +1,4 @@
-import type { Event, EventWithParticipants, Participant, CandidateDate, CalculateResult, RestaurantSearchResult, VenueSelection, Restaurant, ParticipantResponse, Arrival, DrinkOrder } from '@/types';
+import type { Event, EventWithParticipants, Participant, CandidateDate, CalculateResult, RestaurantSearchResult, VenueSelection, Restaurant, ParticipantResponse, Arrival, DrinkOrder, CustomVenueLink } from '@/types';
 
 const API_BASE = '/api';
 
@@ -229,10 +229,23 @@ export const api = {
     return fetchJson(`${API_BASE}/drink-orders/${id}`, { method: 'DELETE' });
   },
 
-  // Safe Exit
-  safeExit(eventId: number): Promise<{ success: boolean }> {
-    return fetchJson(`${API_BASE}/events/${eventId}/safe-exit`, {
+  // Custom Venue Links
+  getCustomVenueLinks(eventId: number): Promise<CustomVenueLink[]> {
+    return fetchJson(`${API_BASE}/events/${eventId}/custom-venues`);
+  },
+
+  addCustomVenueLink(
+    eventId: number,
+    data: { venue_type: 'primary' | 'after_party'; label: string; url: string }
+  ): Promise<CustomVenueLink> {
+    return fetchJson(`${API_BASE}/events/${eventId}/custom-venues`, {
       method: 'POST',
+      body: JSON.stringify(data),
     });
   },
+
+  deleteCustomVenueLink(id: number): Promise<{ success: boolean }> {
+    return fetchJson(`${API_BASE}/custom-venues/${id}`, { method: 'DELETE' });
+  },
+
 };

@@ -96,3 +96,15 @@ CREATE TABLE IF NOT EXISTS drink_orders (
 );
 
 CREATE INDEX IF NOT EXISTS idx_drink_orders_event_id ON drink_orders(event_id);
+
+CREATE TABLE IF NOT EXISTS custom_venue_links (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  event_id INTEGER NOT NULL,
+  venue_type TEXT NOT NULL DEFAULT 'primary' CHECK (venue_type IN ('primary', 'after_party')),
+  label TEXT NOT NULL,
+  url TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_custom_venue_links_event_id ON custom_venue_links(event_id);
