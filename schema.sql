@@ -6,7 +6,10 @@ CREATE TABLE IF NOT EXISTS events (
   drinker_ratio REAL NOT NULL DEFAULT 1.3,
   has_after_party INTEGER NOT NULL DEFAULT 0,
   paypay_id TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  kampa_amount INTEGER NOT NULL DEFAULT 0,
+  parent_event_id INTEGER,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (parent_event_id) REFERENCES events(id) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS candidate_dates (
@@ -28,6 +31,9 @@ CREATE TABLE IF NOT EXISTS participants (
   amount_to_pay INTEGER,
   paid_status INTEGER NOT NULL DEFAULT 0,
   paypay_id TEXT,
+  multiplier REAL NOT NULL DEFAULT 1.0,
+  discount_rate REAL NOT NULL DEFAULT 0.0,
+  join_after_party INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE
 );
