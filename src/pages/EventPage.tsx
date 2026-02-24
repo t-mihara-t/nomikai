@@ -27,7 +27,9 @@ export function EventPage() {
   const eventId = id ? parseInt(id, 10) : null;
   const { event, loading, error, refetch } = useEventDetail(eventId);
   const [copied, setCopied] = useState(false);
-  const [newDateTime, setNewDateTime] = useState('');
+  const [newDate, setNewDate] = useState('');
+  const [newHour, setNewHour] = useState('19');
+  const [newMinute, setNewMinute] = useState('00');
   const [addingDate, setAddingDate] = useState(false);
 
   // Pre-registration
@@ -37,6 +39,10 @@ export function EventPage() {
   // PayPay ID
   const [editPaypay, setEditPaypay] = useState(false);
   const [paypayId, setPaypayId] = useState('');
+
+  // Event name edit
+  const [editName, setEditName] = useState(false);
+  const [editNameValue, setEditNameValue] = useState('');
 
   if (loading) {
     return (
@@ -90,15 +96,23 @@ export function EventPage() {
   };
 
   const handleAddCandidateDate = async () => {
-    if (!newDateTime) return;
+    if (!newDate) return;
+    const dateTime = `${newDate}T${newHour.padStart(2, '0')}:${newMinute}`;
     setAddingDate(true);
     try {
-      await api.addCandidateDate(event.id, newDateTime);
-      setNewDateTime('');
+      await api.addCandidateDate(event.id, dateTime);
+      setNewDate('');
       await refetch();
     } finally {
       setAddingDate(false);
     }
+  };
+
+  const handleSaveName = async () => {
+    if (!editNameValue.trim()) return;
+    await api.updateEvent(event.id, { name: editNameValue.trim() });
+    setEditName(false);
+    await refetch();
   };
 
   const handleDeleteCandidateDate = async (dateId: number) => {
@@ -124,8 +138,30 @@ export function EventPage() {
     <div className="mx-auto max-w-2xl space-y-6 p-4">
       <div className="flex items-center gap-4">
         <Button variant="outline" size="sm" onClick={() => navigate('/')}>← 戻る</Button>
-        <div>
-          <h1 className="text-2xl font-bold">{event.name}</h1>
+        <div className="flex-1 min-w-0">
+          {editName ? (
+            <div className="flex gap-2 items-center">
+              <Input
+                value={editNameValue}
+                onChange={(e) => setEditNameValue(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSaveName(); } }}
+                className="text-lg font-bold"
+                autoFocus
+              />
+              <Button size="sm" onClick={handleSaveName}>保存</Button>
+              <Button size="sm" variant="outline" onClick={() => setEditName(false)}>取消</Button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold">{event.name}</h1>
+              <button
+                className="text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => { setEditNameValue(event.name); setEditName(true); }}
+              >
+                編集
+              </button>
+            </div>
+          )}
           <p className="text-sm text-muted-foreground">{event.date}</p>
           <div className="mt-1 flex flex-wrap gap-1">
             {event.has_after_party && <Badge variant="secondary">二次会あり</Badge>}
@@ -191,9 +227,36 @@ export function EventPage() {
           ) : (
             <p className="text-sm text-muted-foreground">候補日時はまだありません</p>
           )}
-          <div className="flex gap-2">
-            <Input type="datetime-local" value={newDateTime} onChange={(e) => setNewDateTime(e.target.value)} className="flex-1" />
-            <Button onClick={handleAddCandidateDate} disabled={!newDateTime || addingDate} size="sm">追加</Button>
+          <div className="flex items-end gap-2">
+            <div className="flex-1">
+              <label className="text-xs text-muted-foreground">日付</label>
+              <Input type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">時</label>
+              <select
+                value={newHour}
+                onChange={(e) => setNewHour(e.target.value)}
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm"
+              >
+                {Array.from({ length: 24 }, (_, i) => (
+                  <option key={i} value={String(i)}>{String(i).padStart(2, '0')}</option>
+                ))}
+              </select>
+            </div>
+            <span className="pb-2 text-sm font-medium">:</span>
+            <div>
+              <label className="text-xs text-muted-foreground">分</label>
+              <select
+                value={newMinute}
+                onChange={(e) => setNewMinute(e.target.value)}
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm"
+              >
+                <option value="00">00</option>
+                <option value="30">30</option>
+              </select>
+            </div>
+            <Button onClick={handleAddCandidateDate} disabled={!newDate || addingDate} size="sm">追加</Button>
           </div>
         </CardContent>
       </Card>
