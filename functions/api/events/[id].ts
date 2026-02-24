@@ -80,6 +80,36 @@ export const onRequestGet: PagesFunction<Env> = async ({ params, env }) => {
     // parent_event_id column may not exist yet
   }
 
+  // Fetch arrivals (Heroic Entry)
+  let arrivals: Record<string, unknown>[] = [];
+  try {
+    const res = await env.DB.prepare(
+      `SELECT a.*, p.name as participant_name
+       FROM arrivals a
+       JOIN participants p ON p.id = a.participant_id
+       WHERE a.event_id = ? AND a.status != 'dismissed'
+       ORDER BY a.created_at DESC`
+    ).bind(id).all();
+    arrivals = res.results;
+  } catch {
+    // arrivals table may not exist yet
+  }
+
+  // Fetch drink orders
+  let drinkOrders: Record<string, unknown>[] = [];
+  try {
+    const res = await env.DB.prepare(
+      `SELECT d.*, p.name as participant_name
+       FROM drink_orders d
+       JOIN participants p ON p.id = d.participant_id
+       WHERE d.event_id = ?
+       ORDER BY d.created_at DESC`
+    ).bind(id).all();
+    drinkOrders = res.results;
+  } catch {
+    // drink_orders table may not exist yet
+  }
+
   return Response.json({
     ...event,
     participants,
@@ -87,6 +117,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ params, env }) => {
     venue_selections: venueSelections,
     participant_responses: participantResponses,
     after_party_event: afterPartyEvent,
+    arrivals,
+    drink_orders: drinkOrders,
   });
 };
 
@@ -100,6 +132,8 @@ export const onRequestPut: PagesFunction<Env> = async ({ params, request, env })
     has_after_party?: boolean;
     paypay_id?: string;
     kampa_amount?: number;
+    auto_delete_at?: string;
+    is_active?: boolean;
   }>();
 
   const event = await env.DB.prepare('SELECT * FROM events WHERE id = ?')
@@ -170,6 +204,16 @@ export const onRequestDelete: PagesFunction<Env> = async ({ params, env }) => {
     await env.DB.prepare('DELETE FROM venue_selections WHERE event_id = ?').bind(id).run();
   } catch {
     // venue_selections table may not exist yet
+  }
+  try {
+    await env.DB.prepare('DELETE FROM arrivals WHERE event_id = ?').bind(id).run();
+  } catch {
+    // arrivals table may not exist yet
+  }
+  try {
+    await env.DB.prepare('DELETE FROM drink_orders WHERE event_id = ?').bind(id).run();
+  } catch {
+    // drink_orders table may not exist yet
   }
   await env.DB.prepare('DELETE FROM participants WHERE event_id = ?').bind(id).run();
   await env.DB.prepare('DELETE FROM events WHERE id = ?').bind(id).run();

@@ -15,6 +15,8 @@ export interface Event {
   paypay_id: string | null;
   kampa_amount: number;
   parent_event_id: number | null;
+  auto_delete_at: string | null;
+  is_active: boolean;
   created_at: string;
   candidate_dates: CandidateDate[];
 }
@@ -43,11 +45,36 @@ export interface ParticipantResponse {
   created_at: string;
 }
 
+export interface Arrival {
+  id: number;
+  event_id: number;
+  participant_id: number;
+  participant_name?: string;
+  eta_minutes: number | null;
+  message: string | null;
+  status: 'approaching' | 'arrived' | 'dismissed';
+  created_at: string;
+}
+
+export interface DrinkOrder {
+  id: number;
+  event_id: number;
+  participant_id: number;
+  participant_name?: string;
+  drink_name: string;
+  quantity: number;
+  note: string | null;
+  confirmed: boolean;
+  created_at: string;
+}
+
 export interface EventWithParticipants extends Event {
   participants: Participant[];
   venue_selections: VenueSelection[];
   participant_responses: ParticipantResponse[];
   after_party_event?: EventWithParticipants | null;
+  arrivals?: Arrival[];
+  drink_orders?: DrinkOrder[];
 }
 
 export interface CalculateRequest {

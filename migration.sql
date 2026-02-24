@@ -51,3 +51,38 @@ ALTER TABLE events ADD COLUMN parent_event_id INTEGER REFERENCES events(id) ON D
 ALTER TABLE participants ADD COLUMN multiplier REAL NOT NULL DEFAULT 1.0;
 ALTER TABLE participants ADD COLUMN discount_rate REAL NOT NULL DEFAULT 0.0;
 ALTER TABLE participants ADD COLUMN join_after_party INTEGER NOT NULL DEFAULT 0;
+
+-- Add auto_delete_at and is_active to events (Safe Exit)
+ALTER TABLE events ADD COLUMN auto_delete_at TEXT;
+ALTER TABLE events ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1;
+
+-- Create arrivals table (Heroic Entry)
+CREATE TABLE IF NOT EXISTS arrivals (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  event_id INTEGER NOT NULL,
+  participant_id INTEGER NOT NULL,
+  eta_minutes INTEGER,
+  message TEXT,
+  status TEXT NOT NULL DEFAULT 'approaching' CHECK (status IN ('approaching', 'arrived', 'dismissed')),
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
+  FOREIGN KEY (participant_id) REFERENCES participants(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_arrivals_event_id ON arrivals(event_id);
+
+-- Create drink_orders table (Pre-order system)
+CREATE TABLE IF NOT EXISTS drink_orders (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  event_id INTEGER NOT NULL,
+  participant_id INTEGER NOT NULL,
+  drink_name TEXT NOT NULL,
+  quantity INTEGER NOT NULL DEFAULT 1,
+  note TEXT,
+  confirmed INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
+  FOREIGN KEY (participant_id) REFERENCES participants(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_drink_orders_event_id ON drink_orders(event_id);

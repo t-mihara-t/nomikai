@@ -8,6 +8,8 @@ CREATE TABLE IF NOT EXISTS events (
   paypay_id TEXT,
   kampa_amount INTEGER NOT NULL DEFAULT 0,
   parent_event_id INTEGER,
+  auto_delete_at TEXT,
+  is_active INTEGER NOT NULL DEFAULT 1,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   FOREIGN KEY (parent_event_id) REFERENCES events(id) ON DELETE SET NULL
 );
@@ -65,3 +67,32 @@ CREATE TABLE IF NOT EXISTS participant_responses (
 
 CREATE INDEX IF NOT EXISTS idx_participant_responses_participant ON participant_responses(participant_id);
 CREATE INDEX IF NOT EXISTS idx_participant_responses_date ON participant_responses(candidate_date_id);
+
+CREATE TABLE IF NOT EXISTS arrivals (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  event_id INTEGER NOT NULL,
+  participant_id INTEGER NOT NULL,
+  eta_minutes INTEGER,
+  message TEXT,
+  status TEXT NOT NULL DEFAULT 'approaching' CHECK (status IN ('approaching', 'arrived', 'dismissed')),
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
+  FOREIGN KEY (participant_id) REFERENCES participants(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_arrivals_event_id ON arrivals(event_id);
+
+CREATE TABLE IF NOT EXISTS drink_orders (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  event_id INTEGER NOT NULL,
+  participant_id INTEGER NOT NULL,
+  drink_name TEXT NOT NULL,
+  quantity INTEGER NOT NULL DEFAULT 1,
+  note TEXT,
+  confirmed INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
+  FOREIGN KEY (participant_id) REFERENCES participants(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_drink_orders_event_id ON drink_orders(event_id);
