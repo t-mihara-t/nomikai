@@ -35,15 +35,20 @@ export function useEventDetail(eventId: number | null) {
   const fetchEvent = useCallback(async () => {
     if (eventId === null) return;
     try {
-      setLoading(true);
+      // Only show loading on initial fetch (when event is null)
+      if (!event) setLoading(true);
       setError(null);
       const data = await api.getEvent(eventId);
       setEvent(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch event');
+      // Only set error on initial load, not on polling failures
+      if (!event) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch event');
+      }
     } finally {
       setLoading(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId]);
 
   useEffect(() => {

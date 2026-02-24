@@ -6,7 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import { RestaurantSearch } from '@/components/RestaurantSearch';
+import { QRCodeSVG } from 'qrcode.react';
 import type { ParticipantResponse } from '@/types';
 
 function formatDateTime(dt: string) {
@@ -44,6 +46,15 @@ export function EventPage() {
   const [editName, setEditName] = useState(false);
   const [editNameValue, setEditNameValue] = useState('');
 
+  // Custom venue links
+  const [venueLabel, setVenueLabel] = useState('');
+  const [venueUrl, setVenueUrl] = useState('');
+  const [venueType, setVenueType] = useState<'primary' | 'after_party'>('primary');
+  const [addingVenueLink, setAddingVenueLink] = useState(false);
+
+  // QR code
+  const [showQr, setShowQr] = useState(false);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-12">
@@ -62,9 +73,11 @@ export function EventPage() {
   }
 
   const participantUrl = `${window.location.origin}/join/${event.id}`;
+  const arriveUrl = `${window.location.origin}/events/${event.id}/arrive`;
   const allResponses: ParticipantResponse[] = event.participant_responses || [];
   const candidateDates = event.candidate_dates || [];
   const primaryVenues = (event.venue_selections || []).filter((v) => v.venue_type === 'primary');
+  const customVenueLinks = event.custom_venue_links || [];
 
   const handleCopyLink = async () => {
     await navigator.clipboard.writeText(participantUrl);
@@ -126,6 +139,29 @@ export function EventPage() {
     await refetch();
   };
 
+  const handleAddVenueLink = async () => {
+    if (!venueLabel.trim() || !venueUrl.trim()) return;
+    setAddingVenueLink(true);
+    try {
+      await api.addCustomVenueLink(event.id, {
+        venue_type: venueType,
+        label: venueLabel.trim(),
+        url: venueUrl.trim(),
+      });
+      setVenueLabel('');
+      setVenueUrl('');
+      await refetch();
+    } finally {
+      setAddingVenueLink(false);
+    }
+  };
+
+  const handleDeleteVenueLink = async (linkId: number) => {
+    if (!confirm('このリンクを削除しますか？')) return;
+    await api.deleteCustomVenueLink(linkId);
+    await refetch();
+  };
+
   // Tabelog search URL
   const generateTabelogUrl = () => {
     const keyword = primaryVenues.length > 0
@@ -172,12 +208,32 @@ export function EventPage() {
       {/* 参加者共有リンク */}
       <Card>
         <CardHeader><CardTitle className="text-lg">参加者向けリンク</CardTitle></CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground mb-2">参加者にこのリンクを共有して出欠を登録してもらいましょう</p>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">参加者にこのリンクを共有して出欠を登録してもらいましょう</p>
           <div className="flex gap-2">
             <Input value={participantUrl} readOnly className="flex-1" />
             <Button onClick={handleCopyLink} variant="outline">{copied ? 'コピー済み' : 'コピー'}</Button>
           </div>
+          <Button variant="outline" size="sm" onClick={() => setShowQr(!showQr)}>
+            {showQr ? 'QRコードを隠す' : 'QRコードを表示'}
+          </Button>
+          {showQr && (
+            <div className="space-y-4 pt-2">
+              <div className="space-y-2">
+                <p className="text-sm font-medium">参加者ページ</p>
+                <div className="flex justify-center bg-white p-4 rounded-lg">
+                  <QRCodeSVG value={participantUrl} size={180} />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm font-medium">遅刻者用リンク（到着連絡ページ）</p>
+                <div className="flex justify-center bg-white p-4 rounded-lg">
+                  <QRCodeSVG value={arriveUrl} size={180} />
+                </div>
+                <p className="text-xs text-muted-foreground text-center break-all">{arriveUrl}</p>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -232,29 +288,27 @@ export function EventPage() {
               <label className="text-xs text-muted-foreground">日付</label>
               <Input type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} />
             </div>
-            <div>
+            <div className="w-20">
               <label className="text-xs text-muted-foreground">時</label>
-              <select
+              <Select
                 value={newHour}
                 onChange={(e) => setNewHour(e.target.value)}
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm"
               >
                 {Array.from({ length: 24 }, (_, i) => (
                   <option key={i} value={String(i)}>{String(i).padStart(2, '0')}</option>
                 ))}
-              </select>
+              </Select>
             </div>
-            <span className="pb-2 text-sm font-medium">:</span>
-            <div>
+            <span className="pb-3 text-sm font-medium">:</span>
+            <div className="w-20">
               <label className="text-xs text-muted-foreground">分</label>
-              <select
+              <Select
                 value={newMinute}
                 onChange={(e) => setNewMinute(e.target.value)}
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm"
               >
                 <option value="00">00</option>
                 <option value="30">30</option>
-              </select>
+              </Select>
             </div>
             <Button onClick={handleAddCandidateDate} disabled={!newDate || addingDate} size="sm">追加</Button>
           </div>
@@ -379,6 +433,74 @@ export function EventPage() {
           <p className="text-[10px] text-muted-foreground mt-1">
             ※食べログは公式APIが限定的なため、外部リンクでの検索となります
           </p>
+        </CardContent>
+      </Card>
+
+      {/* カスタム場所リンク */}
+      <Card>
+        <CardHeader><CardTitle className="text-lg">場所リンク（GoogleマップURL等）</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            GoogleマップのURLなど、お店の場所を直接リンクで登録できます
+          </p>
+          {customVenueLinks.length > 0 && (
+            <div className="space-y-2">
+              {customVenueLinks.map((link) => (
+                <div key={link.id} className="flex items-center justify-between rounded-lg border border-border p-2 gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1">
+                      <Badge variant="secondary" className="text-xs shrink-0">
+                        {link.venue_type === 'primary' ? '一次会' : '二次会'}
+                      </Badge>
+                      <span className="text-sm font-medium truncate">{link.label}</span>
+                    </div>
+                    <a
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-primary hover:underline break-all"
+                    >
+                      {link.url}
+                    </a>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={() => handleDeleteVenueLink(link.id)}>削除</Button>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="space-y-2 border-t border-border pt-3">
+            <div className="flex gap-2">
+              <Input
+                placeholder="ラベル（例: 居酒屋〇〇）"
+                value={venueLabel}
+                onChange={(e) => setVenueLabel(e.target.value)}
+                className="flex-1"
+              />
+              <Select
+                value={venueType}
+                onChange={(e) => setVenueType(e.target.value as 'primary' | 'after_party')}
+                className="w-28"
+              >
+                <option value="primary">一次会</option>
+                <option value="after_party">二次会</option>
+              </Select>
+            </div>
+            <div className="flex gap-2">
+              <Input
+                placeholder="URL（GoogleマップのURLなど）"
+                value={venueUrl}
+                onChange={(e) => setVenueUrl(e.target.value)}
+                className="flex-1"
+              />
+              <Button
+                onClick={handleAddVenueLink}
+                disabled={!venueLabel.trim() || !venueUrl.trim() || addingVenueLink}
+                size="sm"
+              >
+                追加
+              </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
 

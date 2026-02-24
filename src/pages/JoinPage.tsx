@@ -224,6 +224,30 @@ export function JoinPage() {
         </Card>
       )}
 
+      {/* カスタム場所リンク */}
+      {(event.custom_venue_links || []).length > 0 && (
+        <Card>
+          <CardHeader><CardTitle className="text-lg">場所リンク</CardTitle></CardHeader>
+          <CardContent className="space-y-2">
+            {(event.custom_venue_links || []).map((link) => (
+              <div key={link.id} className="flex items-center gap-2 rounded-lg border border-border p-2">
+                <Badge variant="secondary" className="text-xs shrink-0">
+                  {link.venue_type === 'primary' ? '一次会' : '二次会'}
+                </Badge>
+                <a
+                  href={link.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-primary hover:underline truncate"
+                >
+                  {link.label}
+                </a>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       {event.paypay_id && (
         <Card>
           <CardContent className="p-4">

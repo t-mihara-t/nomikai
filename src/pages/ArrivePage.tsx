@@ -15,6 +15,8 @@ const ETA_OPTIONS = [
   { label: '15分', value: 15 },
   { label: '20分', value: 20 },
   { label: '30分', value: 30 },
+  { label: '45分', value: 45 },
+  { label: '60分', value: 60 },
 ];
 
 function VenueCard({ shop }: { shop: Restaurant }) {
@@ -52,12 +54,11 @@ export function ArrivePage() {
   const eventId = id ? parseInt(id, 10) : null;
   const { event, loading, error } = useEventDetail(eventId);
 
-  const [step, setStep] = useState<'select' | 'announce' | 'done'>('select');
+  const [step, setStep] = useState<'select' | 'done'>('select');
   const [selectedParticipantId, setSelectedParticipantId] = useState<number | null>(null);
   const [etaMinutes, setEtaMinutes] = useState<number | null>(10);
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [arrivalId, setArrivalId] = useState<number | null>(null);
 
   if (loading) {
     return (
@@ -81,30 +82,18 @@ export function ArrivePage() {
     if (!selectedParticipantId) return;
     setSubmitting(true);
     try {
-      const arrival = await api.announceArrival(event.id, {
+      await api.announceArrival(event.id, {
         participant_id: selectedParticipantId,
         eta_minutes: etaMinutes ?? undefined,
         message: message.trim() || undefined,
       });
-      setArrivalId(arrival.id);
+      // Also update participant status to attending
+      await api.updateParticipant(selectedParticipantId, { status: 'attending' });
       setStep('done');
     } catch (err) {
       alert(err instanceof Error ? err.message : '送信に失敗しました');
     } finally {
       setSubmitting(false);
-    }
-  };
-
-  const handleMarkArrived = async () => {
-    if (!arrivalId) return;
-    try {
-      await api.updateArrival(arrivalId, { status: 'arrived' });
-      // Also update participant status to attending
-      if (selectedParticipantId) {
-        await api.updateParticipant(selectedParticipantId, { status: 'attending' });
-      }
-    } catch {
-      // Ignore errors
     }
   };
 
@@ -162,7 +151,7 @@ export function ArrivePage() {
             {selectedParticipantId && (
               <>
                 <div className="space-y-2">
-                  <p className="text-sm font-medium">到着予定は？</p>
+                  <p className="text-sm font-medium">あと何分で着きそう？</p>
                   <div className="flex flex-wrap gap-2">
                     {ETA_OPTIONS.map((opt) => (
                       <Button
@@ -192,7 +181,7 @@ export function ArrivePage() {
                   onClick={handleAnnounce}
                   disabled={submitting}
                 >
-                  {submitting ? '送信中...' : '到着を予告する（Heroic Entry）'}
+                  {submitting ? '送信中...' : '到着を知らせる'}
                 </Button>
               </>
             )}
@@ -200,22 +189,15 @@ export function ArrivePage() {
         </Card>
       )}
 
-      {/* Step 2: Done - show drink order + arrived button */}
+      {/* Step 2: Done - show drink order */}
       {step === 'done' && selectedParticipantId && (
         <>
           <Card>
             <CardContent className="p-6 text-center space-y-4">
-              <div className="text-4xl">🎉</div>
-              <p className="text-xl font-bold">到着予告を送信しました！</p>
+              <p className="text-xl font-bold">連絡しました！</p>
               <p className="text-muted-foreground">
-                幹事のスマホに通知が表示されます
+                幹事に通知が届きます。到着までもう少し！
               </p>
-              <Button
-                className="w-full min-h-[56px] text-lg font-bold bg-green-600 hover:bg-green-700 text-white"
-                onClick={handleMarkArrived}
-              >
-                到着した！
-              </Button>
             </CardContent>
           </Card>
 

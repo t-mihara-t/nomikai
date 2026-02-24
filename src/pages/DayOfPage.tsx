@@ -65,14 +65,11 @@ export function DayOfPage() {
   const [activeTab, setActiveTab] = useState<TabType>('primary');
   const [creatingAfterParty, setCreatingAfterParty] = useState(false);
 
-  // Heroic Entry state
+  // Arrival notification state
   const [heroicArrival, setHeroicArrival] = useState<Arrival | null>(null);
   const [previousArrivalIds, setPreviousArrivalIds] = useState<Set<number>>(new Set());
   const [arrivalLinkCopied, setArrivalLinkCopied] = useState(false);
-
-  // Safe Exit
-  const [safeExitConfirm, setSafeExitConfirm] = useState(false);
-  const [safeExiting, setSafeExiting] = useState(false);
+  const [drinkReminders, setDrinkReminders] = useState<Set<number>>(new Set());
 
   // Poll for new arrivals & drink orders every 10 seconds
   const checkForNewArrivals = useCallback(async () => {
@@ -89,10 +86,28 @@ export function DayOfPage() {
           break;
         }
       }
+
+      // Auto drink reminder: for 30+ min arrivals, remind 5 min before ETA
+      for (const arrival of activeArrivals) {
+        if (
+          arrival.status === 'approaching' &&
+          arrival.eta_minutes != null &&
+          arrival.eta_minutes >= 30 &&
+          !drinkReminders.has(arrival.id)
+        ) {
+          const createdAt = new Date(arrival.created_at).getTime();
+          const now = Date.now();
+          const elapsedMin = (now - createdAt) / 60000;
+          const reminderTriggerMin = arrival.eta_minutes - 5;
+          if (elapsedMin >= reminderTriggerMin) {
+            setDrinkReminders(prev => new Set([...prev, arrival.id]));
+          }
+        }
+      }
     } catch {
       // Polling error - ignore silently
     }
-  }, [eventId, previousArrivalIds]);
+  }, [eventId, previousArrivalIds, drinkReminders]);
 
   useEffect(() => {
     // Initialize known arrivals from event data
@@ -137,6 +152,9 @@ export function DayOfPage() {
   const drinkOrders = (event.drink_orders || []) as DrinkOrder[];
   const activeArrivals = arrivals.filter(a => a.status === 'approaching');
   const arriveUrl = `${window.location.origin}/events/${event.id}/arrive`;
+  const customVenueLinks = event.custom_venue_links || [];
+  const primaryCustomLinks = customVenueLinks.filter(l => l.venue_type === 'primary');
+  const afterPartyCustomLinks = customVenueLinks.filter(l => l.venue_type === 'after_party');
 
   // Handlers for primary event participants
   const handleToggleStatus = async (participantId: number, currentStatus: 'attending' | 'absent' | 'pending') => {
@@ -243,21 +261,6 @@ export function DayOfPage() {
     setTimeout(() => setArrivalLinkCopied(false), 2000);
   };
 
-  // Safe Exit
-  const handleSafeExit = async () => {
-    setSafeExiting(true);
-    try {
-      await api.safeExit(event.id);
-      await refetch();
-      setSafeExitConfirm(false);
-      alert('完全隠滅モードを発動しました。位置情報は即削除され、イベントデータは翌朝4時に自動削除されます。');
-    } catch (err) {
-      alert(err instanceof Error ? err.message : '処理に失敗しました');
-    } finally {
-      setSafeExiting(false);
-    }
-  };
-
   const generateSettlementText = (ev: EventWithParticipants, label?: string) => {
     const attending = ev.participants.filter((p) => p.status === 'attending');
     const venueName = label === '二次会'
@@ -355,6 +358,18 @@ export function DayOfPage() {
         </div>
       )}
 
+      {/* Auto drink reminder: approaching 5 min before arrival for 30+ min latecomers */}
+      {arrivals.filter(a => a.status === 'approaching' && drinkReminders.has(a.id)).map((arrival) => (
+        <div key={`reminder-${arrival.id}`} className="arrival-card-enter rounded-xl border-2 border-red-400 bg-gradient-to-r from-red-50 to-orange-50 p-4 space-y-2">
+          <p className="font-bold text-red-700 text-base">
+            {arrival.participant_name}さんがまもなく到着します
+          </p>
+          <p className="text-sm text-red-600">
+            ドリンクの注文をお願いします！
+          </p>
+        </div>
+      ))}
+
       {/* Drink orders from latecomers */}
       <DrinkOrderList
         orders={drinkOrders}
@@ -365,8 +380,8 @@ export function DayOfPage() {
       {/* Share arrival link */}
       <Card>
         <CardContent className="p-4 space-y-2">
-          <p className="text-sm font-medium">遅刻者用リンク（Heroic Entry）</p>
-          <p className="text-xs text-muted-foreground">遅れて来る人にこのリンクを送ると、到着予告＋ドリンク先注文ができます</p>
+          <p className="text-sm font-medium">遅刻者用リンク</p>
+          <p className="text-xs text-muted-foreground">遅れて来る人にこのリンクを送ると、到着連絡＋ドリンク先注文ができます</p>
           <div className="flex gap-2">
             <code className="flex-1 text-xs bg-muted rounded-lg p-2 truncate">{arriveUrl}</code>
             <Button
@@ -413,6 +428,25 @@ export function DayOfPage() {
               <CardContent className="space-y-3">
                 {primaryVenues.map((v, i) => (
                   <VenueCard key={v.id} shop={v.restaurant} label={primaryVenues.length > 1 ? `候補 ${i + 1}` : undefined} />
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* カスタム場所リンク（一次会） */}
+          {primaryCustomLinks.length > 0 && (
+            <Card>
+              <CardContent className="p-4 space-y-2">
+                {primaryCustomLinks.map((link) => (
+                  <a
+                    key={link.id}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-sm text-primary hover:underline"
+                  >
+                    <span>📍</span> {link.label}
+                  </a>
                 ))}
               </CardContent>
             </Card>
@@ -487,6 +521,25 @@ export function DayOfPage() {
             </Card>
           )}
 
+          {/* カスタム場所リンク（二次会） */}
+          {afterPartyCustomLinks.length > 0 && (
+            <Card>
+              <CardContent className="p-4 space-y-2">
+                {afterPartyCustomLinks.map((link) => (
+                  <a
+                    key={link.id}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-sm text-primary hover:underline"
+                  >
+                    <span>📍</span> {link.label}
+                  </a>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
           {afterPartyEvent ? (
             <>
               <ParticipantList
@@ -539,48 +592,6 @@ export function DayOfPage() {
         </>
       )}
 
-      {/* ===== SAFE EXIT (完全隠滅モード) ===== */}
-      <Card className="border-red-200">
-        <CardHeader>
-          <CardTitle className="text-lg text-red-600">完全隠滅モード（Safe Exit）</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <p className="text-sm text-muted-foreground">
-            位置情報を即時削除し、翌朝4時にイベントデータを自動削除します。
-            飲み会の痕跡を残しません。
-          </p>
-          {!safeExitConfirm ? (
-            <Button
-              variant="destructive"
-              className="w-full min-h-[48px] font-bold"
-              onClick={() => setSafeExitConfirm(true)}
-            >
-              Safe Exit を発動
-            </Button>
-          ) : (
-            <div className="space-y-2">
-              <p className="text-sm text-destructive font-medium">本当に発動しますか？この操作は取り消せません。</p>
-              <div className="flex gap-2">
-                <Button
-                  variant="destructive"
-                  className="flex-1 min-h-[48px] font-bold"
-                  onClick={handleSafeExit}
-                  disabled={safeExiting}
-                >
-                  {safeExiting ? '処理中...' : '発動する'}
-                </Button>
-                <Button
-                  variant="outline"
-                  className="flex-1 min-h-[48px]"
-                  onClick={() => setSafeExitConfirm(false)}
-                >
-                  キャンセル
-                </Button>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }

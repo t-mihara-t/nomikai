@@ -75,6 +75,7 @@ export interface EventWithParticipants extends Event {
   after_party_event?: EventWithParticipants | null;
   arrivals?: Arrival[];
   drink_orders?: DrinkOrder[];
+  custom_venue_links?: CustomVenueLink[];
 }
 
 export interface CalculateRequest {
@@ -142,5 +143,14 @@ export interface VenueSelection {
   event_id: number;
   venue_type: 'primary' | 'after_party';
   restaurant: Restaurant;
+  created_at: string;
+}
+
+export interface CustomVenueLink {
+  id: number;
+  event_id: number;
+  venue_type: 'primary' | 'after_party';
+  label: string;
+  url: string;
   created_at: string;
 }

@@ -110,6 +110,17 @@ export const onRequestGet: PagesFunction<Env> = async ({ params, env }) => {
     // drink_orders table may not exist yet
   }
 
+  // Fetch custom venue links
+  let customVenueLinks: Record<string, unknown>[] = [];
+  try {
+    const res = await env.DB.prepare(
+      'SELECT * FROM custom_venue_links WHERE event_id = ? ORDER BY venue_type, created_at ASC'
+    ).bind(id).all();
+    customVenueLinks = res.results;
+  } catch {
+    // custom_venue_links table may not exist yet
+  }
+
   return Response.json({
     ...event,
     participants,
@@ -119,6 +130,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ params, env }) => {
     after_party_event: afterPartyEvent,
     arrivals,
     drink_orders: drinkOrders,
+    custom_venue_links: customVenueLinks,
   });
 };
 
@@ -214,6 +226,11 @@ export const onRequestDelete: PagesFunction<Env> = async ({ params, env }) => {
     await env.DB.prepare('DELETE FROM drink_orders WHERE event_id = ?').bind(id).run();
   } catch {
     // drink_orders table may not exist yet
+  }
+  try {
+    await env.DB.prepare('DELETE FROM custom_venue_links WHERE event_id = ?').bind(id).run();
+  } catch {
+    // custom_venue_links table may not exist yet
   }
   await env.DB.prepare('DELETE FROM participants WHERE event_id = ?').bind(id).run();
   await env.DB.prepare('DELETE FROM events WHERE id = ?').bind(id).run();
