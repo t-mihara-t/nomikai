@@ -1,4 +1,4 @@
-import type { Event, EventWithParticipants, Participant, CandidateDate, CalculateResult, RestaurantSearchResult, VenueSelection, Restaurant, ParticipantResponse } from '@/types';
+import type { Event, EventWithParticipants, Participant, CandidateDate, CalculateResult, RestaurantSearchResult, VenueSelection, Restaurant, ParticipantResponse, Arrival, DrinkOrder } from '@/types';
 
 const API_BASE = '/api';
 
@@ -42,7 +42,7 @@ export const api = {
 
   updateEvent(
     id: number,
-    data: Partial<Pick<Event, 'name' | 'date' | 'total_amount' | 'drinker_ratio' | 'has_after_party' | 'paypay_id' | 'kampa_amount'>>
+    data: Partial<Pick<Event, 'name' | 'date' | 'total_amount' | 'drinker_ratio' | 'has_after_party' | 'paypay_id' | 'kampa_amount' | 'auto_delete_at' | 'is_active'>>
   ): Promise<Event> {
     return fetchJson(`${API_BASE}/events/${id}`, {
       method: 'PUT',
@@ -176,6 +176,63 @@ export const api = {
     return fetchJson(`${API_BASE}/events/${eventId}/participants/bulk`, {
       method: 'PUT',
       body: JSON.stringify(data),
+    });
+  },
+
+  // Arrivals (Heroic Entry)
+  getArrivals(eventId: number): Promise<Arrival[]> {
+    return fetchJson(`${API_BASE}/events/${eventId}/arrivals`);
+  },
+
+  announceArrival(
+    eventId: number,
+    data: { participant_id: number; eta_minutes?: number; message?: string }
+  ): Promise<Arrival> {
+    return fetchJson(`${API_BASE}/events/${eventId}/arrivals`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  updateArrival(
+    id: number,
+    data: Partial<Pick<Arrival, 'status' | 'eta_minutes'>>
+  ): Promise<Arrival> {
+    return fetchJson(`${API_BASE}/arrivals/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  // Drink Orders
+  getDrinkOrders(eventId: number): Promise<DrinkOrder[]> {
+    return fetchJson(`${API_BASE}/events/${eventId}/drink-orders`);
+  },
+
+  createDrinkOrder(
+    eventId: number,
+    data: { participant_id: number; drink_name: string; quantity?: number; note?: string }
+  ): Promise<DrinkOrder> {
+    return fetchJson(`${API_BASE}/events/${eventId}/drink-orders`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  confirmDrinkOrder(id: number): Promise<DrinkOrder> {
+    return fetchJson(`${API_BASE}/drink-orders/${id}/confirm`, {
+      method: 'PUT',
+    });
+  },
+
+  deleteDrinkOrder(id: number): Promise<{ success: boolean }> {
+    return fetchJson(`${API_BASE}/drink-orders/${id}`, { method: 'DELETE' });
+  },
+
+  // Safe Exit
+  safeExit(eventId: number): Promise<{ success: boolean }> {
+    return fetchJson(`${API_BASE}/events/${eventId}/safe-exit`, {
+      method: 'POST',
     });
   },
 };

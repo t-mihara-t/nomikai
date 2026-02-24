@@ -10,10 +10,10 @@ const variants = {
 } as const;
 
 const sizes = {
-  default: 'h-10 px-4 py-2',
-  sm: 'h-9 px-3 text-sm',
-  lg: 'h-11 px-8 text-lg',
-  icon: 'h-10 w-10',
+  default: 'h-12 min-h-[48px] px-4 py-2',
+  sm: 'h-10 min-h-[40px] px-3 text-sm',
+  lg: 'h-14 min-h-[56px] px-8 text-lg',
+  icon: 'h-12 w-12 min-h-[48px] min-w-[48px]',
 } as const;
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {

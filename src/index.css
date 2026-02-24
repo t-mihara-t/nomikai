@@ -27,3 +27,111 @@ body {
   color: var(--color-foreground);
   font-family: 'Inter', 'Hiragino Sans', 'Meiryo', sans-serif;
 }
+
+/* === Heroic Entry Animations === */
+@keyframes heroic-burst-spin {
+  0% { transform: rotate(0deg) scale(0); opacity: 0; }
+  30% { transform: rotate(90deg) scale(1.2); opacity: 0.8; }
+  100% { transform: rotate(180deg) scale(1); opacity: 0.3; }
+}
+
+@keyframes heroic-flash-in {
+  0% { transform: scaleX(0); opacity: 0; }
+  50% { transform: scaleX(1.1); opacity: 1; }
+  100% { transform: scaleX(1); opacity: 1; }
+}
+
+@keyframes heroic-name-slam {
+  0% { transform: scale(3) rotate(-5deg); opacity: 0; }
+  40% { transform: scale(0.9) rotate(1deg); opacity: 1; }
+  60% { transform: scale(1.05) rotate(-0.5deg); }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+@keyframes heroic-subtitle-slide {
+  0% { transform: translateX(-100px); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes heroic-eta-pop {
+  0% { transform: scale(0); }
+  60% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+@keyframes heroic-pulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
+  50% { transform: scale(1.03); box-shadow: 0 0 20px 5px rgba(34, 197, 94, 0.2); }
+}
+
+@keyframes heroic-tracking-expand {
+  0% { letter-spacing: 0; opacity: 0; }
+  100% { letter-spacing: 0.3em; opacity: 1; }
+}
+
+.heroic-burst {
+  animation: heroic-burst-spin 0.8s ease-out forwards;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    rgba(234, 179, 8, 0.3) 30deg,
+    transparent 60deg,
+    rgba(234, 179, 8, 0.2) 90deg,
+    transparent 120deg,
+    rgba(234, 179, 8, 0.3) 150deg,
+    transparent 180deg,
+    rgba(234, 179, 8, 0.2) 210deg,
+    transparent 240deg,
+    rgba(234, 179, 8, 0.3) 270deg,
+    transparent 300deg,
+    rgba(234, 179, 8, 0.2) 330deg,
+    transparent 360deg
+  );
+  border-radius: 50%;
+}
+
+.heroic-flash {
+  animation: heroic-flash-in 0.5s ease-out 0.2s both;
+}
+
+.heroic-tracking {
+  animation: heroic-tracking-expand 0.6s ease-out 0.3s both;
+}
+
+.heroic-name-container {
+  animation: heroic-name-slam 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.4s both;
+}
+
+.heroic-name-text {
+  text-shadow: 0 0 40px rgba(234, 179, 8, 0.5), 0 4px 8px rgba(0, 0, 0, 0.5);
+}
+
+.heroic-subtitle {
+  animation: heroic-subtitle-slide 0.4s ease-out 0.8s both;
+}
+
+.heroic-eta {
+  animation: heroic-eta-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 1s both;
+}
+
+.heroic-pulse {
+  animation: heroic-pulse 1.5s ease-in-out infinite;
+}
+
+/* === Arrival notification card animation === */
+@keyframes arrival-slide-in {
+  0% { transform: translateX(100%); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+
+.arrival-card-enter {
+  animation: arrival-slide-in 0.4s ease-out both;
+}
+
+/* === Drunk-proof: Minimum touch targets === */
+.drunk-proof-btn {
+  min-height: 48px;
+  min-width: 48px;
+  font-size: 1rem;
+  font-weight: 600;
+}

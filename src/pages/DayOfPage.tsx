@@ -1,13 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEventDetail, useCalculate } from '@/hooks/useEventData';
 import { api } from '@/lib/api';
 import { ParticipantList } from '@/components/ParticipantList';
 import { AdminPanel } from '@/components/AdminPanel';
+import { HeroicEntry } from '@/components/HeroicEntry';
+import { DrinkOrderList } from '@/components/DrinkOrderPanel';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import type { Restaurant, EventWithParticipants } from '@/types';
+import type { Restaurant, EventWithParticipants, Arrival, DrinkOrder } from '@/types';
 
 function VenueCard({ shop, label }: { shop: Restaurant; label?: string }) {
   const mapUrl = shop.lat && shop.lng
@@ -63,6 +65,51 @@ export function DayOfPage() {
   const [activeTab, setActiveTab] = useState<TabType>('primary');
   const [creatingAfterParty, setCreatingAfterParty] = useState(false);
 
+  // Heroic Entry state
+  const [heroicArrival, setHeroicArrival] = useState<Arrival | null>(null);
+  const [previousArrivalIds, setPreviousArrivalIds] = useState<Set<number>>(new Set());
+  const [arrivalLinkCopied, setArrivalLinkCopied] = useState(false);
+
+  // Safe Exit
+  const [safeExitConfirm, setSafeExitConfirm] = useState(false);
+  const [safeExiting, setSafeExiting] = useState(false);
+
+  // Poll for new arrivals & drink orders every 10 seconds
+  const checkForNewArrivals = useCallback(async () => {
+    if (!eventId) return;
+    try {
+      const arrivals = await api.getArrivals(eventId);
+      const activeArrivals = arrivals.filter(a => a.status === 'approaching' || a.status === 'arrived');
+
+      // Check for new arrivals not yet seen
+      for (const arrival of activeArrivals) {
+        if (!previousArrivalIds.has(arrival.id)) {
+          setHeroicArrival(arrival);
+          setPreviousArrivalIds(prev => new Set([...prev, arrival.id]));
+          break;
+        }
+      }
+    } catch {
+      // Polling error - ignore silently
+    }
+  }, [eventId, previousArrivalIds]);
+
+  useEffect(() => {
+    // Initialize known arrivals from event data
+    if (event?.arrivals) {
+      const ids = new Set(event.arrivals.map(a => a.id));
+      setPreviousArrivalIds(ids);
+    }
+  }, [event?.arrivals]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      checkForNewArrivals();
+      refetch(); // Also refresh event data (drink orders, etc.)
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [checkForNewArrivals, refetch]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-12">
@@ -86,6 +133,10 @@ export function DayOfPage() {
   const afterPartyEvent = event.after_party_event;
   const hasAfterParty = event.has_after_party;
   const showTabs = hasAfterParty || afterPartyEvent;
+  const arrivals = (event.arrivals || []) as Arrival[];
+  const drinkOrders = (event.drink_orders || []) as DrinkOrder[];
+  const activeArrivals = arrivals.filter(a => a.status === 'approaching');
+  const arriveUrl = `${window.location.origin}/events/${event.id}/arrive`;
 
   // Handlers for primary event participants
   const handleToggleStatus = async (participantId: number, currentStatus: 'attending' | 'absent' | 'pending') => {
@@ -151,7 +202,7 @@ export function DayOfPage() {
     }
   };
 
-  // After-party event handlers (re-use same pattern)
+  // After-party event handlers
   const handleAPToggleStatus = async (participantId: number, currentStatus: 'attending' | 'absent' | 'pending') => {
     const nextStatus = currentStatus === 'attending' ? 'absent' : currentStatus === 'absent' ? 'pending' : 'attending';
     await api.updateParticipant(participantId, { status: nextStatus });
@@ -163,6 +214,48 @@ export function DayOfPage() {
     const result = await calculate(afterPartyEvent.id, data);
     if (result) await refetch();
     return result;
+  };
+
+  // Heroic Entry handlers
+  const handleDismissArrival = async (arrivalId: number) => {
+    setHeroicArrival(null);
+    try {
+      await api.updateArrival(arrivalId, { status: 'dismissed' });
+      await refetch();
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleConfirmDrinkOrder = async (orderId: number) => {
+    await api.confirmDrinkOrder(orderId);
+    await refetch();
+  };
+
+  const handleDeleteDrinkOrder = async (orderId: number) => {
+    await api.deleteDrinkOrder(orderId);
+    await refetch();
+  };
+
+  const handleCopyArriveLink = async () => {
+    await navigator.clipboard.writeText(arriveUrl);
+    setArrivalLinkCopied(true);
+    setTimeout(() => setArrivalLinkCopied(false), 2000);
+  };
+
+  // Safe Exit
+  const handleSafeExit = async () => {
+    setSafeExiting(true);
+    try {
+      await api.safeExit(event.id);
+      await refetch();
+      setSafeExitConfirm(false);
+      alert('完全隠滅モードを発動しました。位置情報は即削除され、イベントデータは翌朝4時に自動削除されます。');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '処理に失敗しました');
+    } finally {
+      setSafeExiting(false);
+    }
   };
 
   const generateSettlementText = (ev: EventWithParticipants, label?: string) => {
@@ -187,7 +280,6 @@ export function DayOfPage() {
       lines.push(`参加者: ${attending.length}名`);
       lines.push(``);
 
-      // Show individual amounts
       attending.forEach((p) => {
         if (p.amount_to_pay != null) {
           const extras = [];
@@ -218,6 +310,17 @@ export function DayOfPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 p-4">
+      {/* Heroic Entry full-screen overlay */}
+      {heroicArrival && (
+        <HeroicEntry
+          arrival={heroicArrival}
+          drinkOrders={drinkOrders}
+          onDismiss={handleDismissArrival}
+          onConfirmOrder={handleConfirmDrinkOrder}
+        />
+      )}
+
+      {/* Header */}
       <div className="flex items-center gap-4">
         <Button variant="outline" size="sm" onClick={() => navigate(`/events/${event.id}`)}>← 幹事ページ</Button>
         <div>
@@ -227,12 +330,63 @@ export function DayOfPage() {
         </div>
       </div>
 
+      {/* Arrival notifications bar */}
+      {activeArrivals.length > 0 && (
+        <div className="space-y-2">
+          {activeArrivals.map((arrival) => (
+            <div key={arrival.id} className="arrival-card-enter flex items-center justify-between rounded-xl border-2 border-amber-400 bg-gradient-to-r from-amber-50 to-orange-50 p-4 gap-3">
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-lg">{arrival.participant_name}</p>
+                <p className="text-sm text-amber-700">
+                  {arrival.eta_minutes != null ? `あと約${arrival.eta_minutes}分で到着` : '向かっています'}
+                </p>
+                {arrival.message && (
+                  <p className="text-sm text-muted-foreground mt-1">「{arrival.message}」</p>
+                )}
+              </div>
+              <Button
+                className="min-h-[48px] min-w-[48px] text-base font-bold"
+                onClick={() => handleDismissArrival(arrival.id)}
+              >
+                OK
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Drink orders from latecomers */}
+      <DrinkOrderList
+        orders={drinkOrders}
+        onConfirm={handleConfirmDrinkOrder}
+        onDelete={handleDeleteDrinkOrder}
+      />
+
+      {/* Share arrival link */}
+      <Card>
+        <CardContent className="p-4 space-y-2">
+          <p className="text-sm font-medium">遅刻者用リンク（Heroic Entry）</p>
+          <p className="text-xs text-muted-foreground">遅れて来る人にこのリンクを送ると、到着予告＋ドリンク先注文ができます</p>
+          <div className="flex gap-2">
+            <code className="flex-1 text-xs bg-muted rounded-lg p-2 truncate">{arriveUrl}</code>
+            <Button
+              variant="outline"
+              className="min-h-[48px] min-w-[48px] font-bold"
+              onClick={handleCopyArriveLink}
+            >
+              {arrivalLinkCopied ? 'Copied!' : 'コピー'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Tabs for primary/after-party */}
       {showTabs && (
         <div className="flex gap-2 border-b border-border pb-2">
           <Button
             variant={activeTab === 'primary' ? 'default' : 'outline'}
             size="sm"
+            className="min-h-[48px]"
             onClick={() => setActiveTab('primary')}
           >
             一次会
@@ -240,6 +394,7 @@ export function DayOfPage() {
           <Button
             variant={activeTab === 'after_party' ? 'default' : 'outline'}
             size="sm"
+            className="min-h-[48px]"
             onClick={() => setActiveTab('after_party')}
           >
             二次会
@@ -285,7 +440,7 @@ export function DayOfPage() {
                   「二次会」ボタンでチェックした参加者を二次会イベントに引き継ぎます
                   ({event.participants.filter((p) => p.join_after_party && p.status === 'attending').length}名選択中)
                 </p>
-                <Button onClick={handleCreateAfterParty} disabled={creatingAfterParty} className="w-full">
+                <Button onClick={handleCreateAfterParty} disabled={creatingAfterParty} className="w-full min-h-[48px]">
                   {creatingAfterParty ? '作成中...' : '二次会イベントを作成'}
                 </Button>
               </CardContent>
@@ -311,7 +466,7 @@ export function DayOfPage() {
                 <pre className="whitespace-pre-wrap text-xs bg-muted rounded-lg p-3 border border-border">
                   {generateSettlementText(event, '一次会')}
                 </pre>
-                <Button onClick={() => handleCopySettlement(event, '一次会')} variant="outline" className="w-full">
+                <Button onClick={() => handleCopySettlement(event, '一次会')} variant="outline" className="w-full min-h-[48px]">
                   {settlementCopied ? 'コピー済み！' : 'テキストをコピー'}
                 </Button>
               </CardContent>
@@ -365,7 +520,7 @@ export function DayOfPage() {
                     <pre className="whitespace-pre-wrap text-xs bg-muted rounded-lg p-3 border border-border">
                       {generateSettlementText(afterPartyEvent, '二次会')}
                     </pre>
-                    <Button onClick={() => handleCopySettlement(afterPartyEvent, '二次会')} variant="outline" className="w-full">
+                    <Button onClick={() => handleCopySettlement(afterPartyEvent, '二次会')} variant="outline" className="w-full min-h-[48px]">
                       {settlementCopied ? 'コピー済み！' : 'テキストをコピー'}
                     </Button>
                   </CardContent>
@@ -377,12 +532,55 @@ export function DayOfPage() {
               <CardContent className="p-6 text-center space-y-3">
                 <p className="text-muted-foreground">二次会イベントはまだ作成されていません</p>
                 <p className="text-sm text-muted-foreground">一次会タブで「二次会」ボタンでメンバーを選択してから作成してください</p>
-                <Button variant="outline" onClick={() => setActiveTab('primary')}>一次会タブに戻る</Button>
+                <Button variant="outline" className="min-h-[48px]" onClick={() => setActiveTab('primary')}>一次会タブに戻る</Button>
               </CardContent>
             </Card>
           )}
         </>
       )}
+
+      {/* ===== SAFE EXIT (完全隠滅モード) ===== */}
+      <Card className="border-red-200">
+        <CardHeader>
+          <CardTitle className="text-lg text-red-600">完全隠滅モード（Safe Exit）</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            位置情報を即時削除し、翌朝4時にイベントデータを自動削除します。
+            飲み会の痕跡を残しません。
+          </p>
+          {!safeExitConfirm ? (
+            <Button
+              variant="destructive"
+              className="w-full min-h-[48px] font-bold"
+              onClick={() => setSafeExitConfirm(true)}
+            >
+              Safe Exit を発動
+            </Button>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-sm text-destructive font-medium">本当に発動しますか？この操作は取り消せません。</p>
+              <div className="flex gap-2">
+                <Button
+                  variant="destructive"
+                  className="flex-1 min-h-[48px] font-bold"
+                  onClick={handleSafeExit}
+                  disabled={safeExiting}
+                >
+                  {safeExiting ? '処理中...' : '発動する'}
+                </Button>
+                <Button
+                  variant="outline"
+                  className="flex-1 min-h-[48px]"
+                  onClick={() => setSafeExitConfirm(false)}
+                >
+                  キャンセル
+                </Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
