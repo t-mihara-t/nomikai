@@ -23,8 +23,26 @@ export const api = {
     return fetchJson(`${API_BASE}/events`);
   },
 
-  getEvent(id: number): Promise<EventWithParticipants> {
-    return fetchJson(`${API_BASE}/events/${id}`);
+  async getEvent(id: number): Promise<EventWithParticipants> {
+    const data = await fetchJson<EventWithParticipants>(`${API_BASE}/events/${id}`);
+    // Normalize participant fields that may be missing from older DB schemas
+    if (data.participants) {
+      data.participants = data.participants.map(p => ({
+        ...p,
+        multiplier: p.multiplier ?? 1.0,
+        discount_rate: p.discount_rate ?? 0,
+        join_after_party: p.join_after_party ?? false,
+      }));
+    }
+    if (data.after_party_event?.participants) {
+      data.after_party_event.participants = data.after_party_event.participants.map(p => ({
+        ...p,
+        multiplier: p.multiplier ?? 1.0,
+        discount_rate: p.discount_rate ?? 0,
+        join_after_party: p.join_after_party ?? false,
+      }));
+    }
+    return data;
   },
 
   createEvent(data: {

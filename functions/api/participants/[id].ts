@@ -2,8 +2,23 @@ interface Env {
   DB: D1Database;
 }
 
+async function ensureParticipantColumns(db: D1Database): Promise<void> {
+  const stmts = [
+    'ALTER TABLE participants ADD COLUMN multiplier REAL NOT NULL DEFAULT 1.0',
+    'ALTER TABLE participants ADD COLUMN discount_rate REAL NOT NULL DEFAULT 0.0',
+    'ALTER TABLE participants ADD COLUMN join_after_party INTEGER NOT NULL DEFAULT 0',
+  ];
+  for (const sql of stmts) {
+    try { await db.prepare(sql).run(); } catch { /* column already exists */ }
+  }
+}
+
 export const onRequestPut: PagesFunction<Env> = async ({ params, request, env }) => {
   const id = params.id;
+
+  // Ensure columns exist before updating
+  await ensureParticipantColumns(env.DB);
+
   const body = await request.json<{
     name?: string;
     status?: 'attending' | 'absent' | 'pending';
