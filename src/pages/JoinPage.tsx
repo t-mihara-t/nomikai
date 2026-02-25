@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useEventDetail } from '@/hooks/useEventData';
 import { api } from '@/lib/api';
 import type { Restaurant, Participant, ParticipantResponse } from '@/types';
@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { QRCodeSVG } from 'qrcode.react';
 
 type ResponseStatus = 'attending' | 'absent' | 'pending';
 
@@ -76,6 +77,7 @@ function StatusButton({ label, active, onClick }: { label: string; active: boole
 
 export function JoinPage() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const eventId = id ? parseInt(id, 10) : null;
   const { event, loading, error, refetch } = useEventDetail(eventId);
 
@@ -204,6 +206,24 @@ export function JoinPage() {
         <p className="mt-1 text-muted-foreground">{event.date}</p>
         {event.has_after_party && <Badge variant="secondary" className="mt-2">二次会あり</Badge>}
       </div>
+
+      {/* このページのQRコード + 遅刻者ページリンク */}
+      <Card>
+        <CardContent className="p-4 space-y-3">
+          <div className="flex justify-center bg-white p-4 rounded-lg">
+            <QRCodeSVG value={window.location.href} size={180} />
+          </div>
+          <p className="text-xs text-muted-foreground text-center">
+            このページのQRコード（会場の地図確認にも使えます）
+          </p>
+          <Button
+            className="w-full min-h-[48px] text-base font-bold bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white"
+            onClick={() => navigate(`/events/${event.id}/arrive`)}
+          >
+            遅れそうな方はこちら（到着連絡・注文）
+          </Button>
+        </CardContent>
+      </Card>
 
       {primaryVenues.length > 0 && (
         <Card>
