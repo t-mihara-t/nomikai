@@ -137,7 +137,7 @@ export function ArrivePage() {
       {step === 'select' && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">あなたは誰ですか？</CardTitle>
+            <CardTitle className="text-lg">お名前を選択してください</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
