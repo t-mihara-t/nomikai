@@ -103,7 +103,16 @@ export function EventPage() {
   };
 
   const handleToggleAfterParty = async () => {
-    await api.updateEvent(event.id, { has_after_party: !event.has_after_party });
+    const willEnable = !event.has_after_party;
+    await api.updateEvent(event.id, { has_after_party: willEnable });
+    // When enabling after-party, set all existing participants to join by default
+    if (willEnable) {
+      await Promise.all(
+        event.participants.map((p) =>
+          api.updateParticipant(p.id, { join_after_party: true })
+        )
+      );
+    }
     await refetch();
   };
 

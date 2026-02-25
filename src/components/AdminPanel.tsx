@@ -112,7 +112,6 @@ export function AdminPanel({
             <div className="space-y-2">
               <Label htmlFor="kampa-amount">カンパ総額 (円)</Label>
               <Input id="kampa-amount" type="number" placeholder="0" value={kampaAmount} onChange={(e) => setKampaAmount(e.target.value)} />
-              <p className="text-[10px] text-muted-foreground">上司等からの特別拠出金</p>
             </div>
           </div>
 
