@@ -5,6 +5,29 @@ interface Env {
   LINE_CHANNEL_ACCESS_TOKEN?: string;
 }
 
+/** Check if LINE columns exist in arrivals table */
+async function hasLineColumns(db: D1Database): Promise<boolean> {
+  try {
+    await db.prepare('SELECT line_notified FROM arrivals LIMIT 0').all();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Ensure LINE columns exist (auto-migrate) */
+async function ensureLineColumns(db: D1Database): Promise<void> {
+  const stmts = [
+    'ALTER TABLE arrivals ADD COLUMN line_notified INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE arrivals ADD COLUMN line_reminder_sent INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE arrivals ADD COLUMN reminder_at TEXT',
+    'ALTER TABLE events ADD COLUMN line_user_id TEXT',
+  ];
+  for (const sql of stmts) {
+    try { await db.prepare(sql).run(); } catch { /* column already exists */ }
+  }
+}
+
 // GET: List active arrivals for an event
 // POST: Announce arrival (Heroic Entry)
 export const onRequest: PagesFunction<Env> = async (context) => {
@@ -35,6 +58,12 @@ export const onRequest: PagesFunction<Env> = async (context) => {
 
     if (!body.participant_id) {
       return Response.json({ error: 'participant_id is required' }, { status: 400 });
+    }
+
+    // Auto-migrate if LINE columns don't exist yet
+    const lineColumnsExist = await hasLineColumns(db);
+    if (!lineColumnsExist) {
+      await ensureLineColumns(db);
     }
 
     // Check for existing active arrival

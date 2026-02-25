@@ -4,6 +4,19 @@ interface Env {
   LINE_LOGIN_CHANNEL_SECRET?: string;
 }
 
+/** Ensure LINE columns exist (auto-migrate) */
+async function ensureLineColumns(db: D1Database): Promise<void> {
+  const stmts = [
+    'ALTER TABLE events ADD COLUMN line_user_id TEXT',
+    'ALTER TABLE arrivals ADD COLUMN line_notified INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE arrivals ADD COLUMN line_reminder_sent INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE arrivals ADD COLUMN reminder_at TEXT',
+  ];
+  for (const sql of stmts) {
+    try { await db.prepare(sql).run(); } catch { /* already exists */ }
+  }
+}
+
 // GET: Get LINE Login authorization URL
 // POST: Exchange code for profile and save line_user_id
 // DELETE: Remove LINE linkage
@@ -39,6 +52,9 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     if (!channelId || !channelSecret) {
       return Response.json({ error: 'LINE Login not configured' }, { status: 503 });
     }
+
+    // Auto-migrate if columns don't exist
+    await ensureLineColumns(db);
 
     const origin = new URL(context.request.url).origin;
     const redirectUri = `${origin}/line-callback`;
