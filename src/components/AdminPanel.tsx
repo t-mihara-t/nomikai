@@ -208,6 +208,7 @@ function BreakdownCard({ result, totalAmount, label, labelColor }: { result: Cal
 }
 
 function BreakdownRow({ b }: { b: ParticipantBreakdown }) {
+  const isGuest = b.discount_rate >= 1.0;
   const hasCustom = b.multiplier !== 1.0 || b.discount_rate > 0;
 
   return (
@@ -216,14 +217,20 @@ function BreakdownRow({ b }: { b: ParticipantBreakdown }) {
         <div className="flex items-center gap-2">
           <span className="font-medium">{b.name}</span>
           <div className="flex gap-1">
-            {b.is_drinker && <Badge variant="warning" className="text-[10px]">飲む</Badge>}
-            {b.multiplier !== 1.0 && <Badge variant="outline" className="text-[10px]">{b.multiplier}倍</Badge>}
-            {b.discount_rate > 0 && <Badge variant="secondary" className="text-[10px]">{Math.round(b.discount_rate * 100)}%OFF</Badge>}
+            {isGuest ? (
+              <Badge variant="secondary" className="text-[10px]">招待（無料）</Badge>
+            ) : (
+              <>
+                {b.is_drinker && <Badge variant="warning" className="text-[10px]">飲む</Badge>}
+                {b.multiplier !== 1.0 && <Badge variant="outline" className="text-[10px]">{b.multiplier}倍</Badge>}
+                {b.discount_rate > 0 && <Badge variant="secondary" className="text-[10px]">{Math.round(b.discount_rate * 100)}%OFF</Badge>}
+              </>
+            )}
           </div>
         </div>
         <span className="font-bold text-primary">{b.final_amount.toLocaleString()}円</span>
       </div>
-      {hasCustom && (
+      {!isGuest && hasCustom && (
         <p className="text-[10px] text-muted-foreground mt-1">
           {b.base_amount.toLocaleString()}円
           {b.multiplier !== 1.0 && ` × ${b.multiplier}`}
