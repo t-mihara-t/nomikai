@@ -55,6 +55,10 @@ export function EventPage() {
   // QR code
   const [showQr, setShowQr] = useState(false);
 
+  // LINE integration
+  const [linkingLine, setLinkingLine] = useState(false);
+  const [unlinkingLine, setUnlinkingLine] = useState(false);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-12">
@@ -137,6 +141,28 @@ export function EventPage() {
     await api.updateEvent(event.id, { paypay_id: paypayId.trim() || undefined });
     setEditPaypay(false);
     await refetch();
+  };
+
+  const handleLinkLine = async () => {
+    setLinkingLine(true);
+    try {
+      const { auth_url } = await api.getLineAuthUrl(event.id);
+      window.location.href = auth_url;
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'LINE連携の開始に失敗しました');
+      setLinkingLine(false);
+    }
+  };
+
+  const handleUnlinkLine = async () => {
+    if (!confirm('LINE連携を解除しますか？')) return;
+    setUnlinkingLine(true);
+    try {
+      await api.unlinkLine(event.id);
+      await refetch();
+    } finally {
+      setUnlinkingLine(false);
+    }
   };
 
   const handleAddVenueLink = async () => {
@@ -264,6 +290,45 @@ export function EventPage() {
               編集
             </Button>
           )}
+        </CardContent>
+      </Card>
+
+      {/* LINE通知連携 */}
+      <Card>
+        <CardContent className="p-4 space-y-2">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-medium text-sm">LINE通知</p>
+              <p className="text-xs text-muted-foreground">
+                {event.line_user_id
+                  ? '連携済み - 遅刻者の到着連絡がLINEに届きます'
+                  : '連携すると遅刻者の到着時にLINEで通知されます'}
+              </p>
+            </div>
+            {event.line_user_id ? (
+              <div className="flex items-center gap-2">
+                <Badge variant="default" className="text-xs">連携済</Badge>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleUnlinkLine}
+                  disabled={unlinkingLine}
+                >
+                  解除
+                </Button>
+              </div>
+            ) : (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={handleLinkLine}
+                disabled={linkingLine}
+                className="bg-[#06C755] hover:bg-[#05b34d] text-white"
+              >
+                {linkingLine ? '接続中...' : 'LINE連携'}
+              </Button>
+            )}
+          </div>
         </CardContent>
       </Card>
 

@@ -59,6 +59,7 @@ export function ArrivePage() {
   const [etaMinutes, setEtaMinutes] = useState<number | null>(10);
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [lineNotified, setLineNotified] = useState(false);
 
   if (loading) {
     return (
@@ -82,11 +83,15 @@ export function ArrivePage() {
     if (!selectedParticipantId) return;
     setSubmitting(true);
     try {
-      await api.announceArrival(event.id, {
+      const arrival = await api.announceArrival(event.id, {
         participant_id: selectedParticipantId,
         eta_minutes: etaMinutes ?? undefined,
         message: message.trim() || undefined,
       });
+      // Check if LINE notification was sent
+      if (arrival?.line_notified) {
+        setLineNotified(true);
+      }
       // Also update participant status to attending
       await api.updateParticipant(selectedParticipantId, { status: 'attending' });
       setStep('done');
@@ -195,9 +200,15 @@ export function ArrivePage() {
           <Card>
             <CardContent className="p-6 text-center space-y-4">
               <p className="text-xl font-bold">連絡しました！</p>
-              <p className="text-muted-foreground">
-                幹事に通知が届きます。到着までもう少し！
-              </p>
+              {lineNotified ? (
+                <p className="text-sm text-green-700 bg-green-50 rounded-lg p-3">
+                  幹事にLINE通知を送りました。ビールが準備されているかもしれません！
+                </p>
+              ) : (
+                <p className="text-muted-foreground">
+                  幹事に通知が届きます。到着までもう少し！
+                </p>
+              )}
             </CardContent>
           </Card>
 

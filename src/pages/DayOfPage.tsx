@@ -121,6 +121,8 @@ export function DayOfPage() {
     const interval = setInterval(() => {
       checkForNewArrivals();
       refetch(); // Also refresh event data (drink orders, etc.)
+      // Trigger LINE reminder check (server-side sends 5-min-before notifications)
+      api.checkLineReminders().catch(() => {});
     }, 10000);
     return () => clearInterval(interval);
   }, [checkForNewArrivals, refetch]);
@@ -346,6 +348,14 @@ export function DayOfPage() {
                 {arrival.message && (
                   <p className="text-sm text-muted-foreground mt-1">「{arrival.message}」</p>
                 )}
+                <div className="flex gap-1 mt-1">
+                  {arrival.line_notified && (
+                    <Badge variant="default" className="text-[10px] bg-[#06C755]">LINE通知済</Badge>
+                  )}
+                  {arrival.line_reminder_sent && (
+                    <Badge variant="default" className="text-[10px] bg-[#D32F2F]">5分前リマインド済</Badge>
+                  )}
+                </div>
               </div>
               <Button
                 className="min-h-[48px] min-w-[48px] text-base font-bold"
@@ -380,7 +390,12 @@ export function DayOfPage() {
       {/* Share arrival link */}
       <Card>
         <CardContent className="p-4 space-y-2">
-          <p className="text-sm font-medium">遅刻者用リンク</p>
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-medium">遅刻者用リンク</p>
+            {event.line_user_id && (
+              <Badge variant="default" className="text-[10px] bg-[#06C755]">LINE通知ON</Badge>
+            )}
+          </div>
           <p className="text-xs text-muted-foreground">遅れて来る人にこのリンクを送ると、到着連絡＋ドリンク先注文ができます</p>
           <div className="flex gap-2">
             <code className="flex-1 text-xs bg-muted rounded-lg p-2 truncate">{arriveUrl}</code>
