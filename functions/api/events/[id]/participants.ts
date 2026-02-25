@@ -20,13 +20,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ params, request, env }
     name: string;
     is_drinker?: boolean;
     paypay_id?: string;
+    join_after_party?: boolean;
   }>();
 
   if (!body.name) {
     return Response.json({ error: 'name is required' }, { status: 400 });
   }
 
-  const event = await env.DB.prepare('SELECT id FROM events WHERE id = ?')
+  const event = await env.DB.prepare('SELECT * FROM events WHERE id = ?')
     .bind(eventId)
     .first();
 
@@ -34,15 +35,21 @@ export const onRequestPost: PagesFunction<Env> = async ({ params, request, env }
     return Response.json({ error: 'Event not found' }, { status: 404 });
   }
 
+  // Default join_after_party to true when the event has after_party enabled
+  const joinAfterParty = body.join_after_party !== undefined
+    ? body.join_after_party
+    : !!event.has_after_party;
+
   const result = await env.DB.prepare(
-    'INSERT INTO participants (event_id, name, status, is_drinker, paypay_id) VALUES (?, ?, ?, ?, ?) RETURNING *'
+    'INSERT INTO participants (event_id, name, status, is_drinker, paypay_id, join_after_party) VALUES (?, ?, ?, ?, ?, ?) RETURNING *'
   )
     .bind(
       eventId,
       body.name,
       'pending',
       body.is_drinker !== undefined ? (body.is_drinker ? 1 : 0) : 1,
-      body.paypay_id || null
+      body.paypay_id || null,
+      joinAfterParty ? 1 : 0
     )
     .first();
 
