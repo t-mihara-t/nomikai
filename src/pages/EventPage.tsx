@@ -8,7 +8,6 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { RestaurantSearch } from '@/components/RestaurantSearch';
-import { QRCodeSVG } from 'qrcode.react';
 import type { ParticipantResponse } from '@/types';
 
 function formatDateTime(dt: string) {
@@ -52,9 +51,6 @@ export function EventPage() {
   const [venueType, setVenueType] = useState<'primary' | 'after_party'>('primary');
   const [addingVenueLink, setAddingVenueLink] = useState(false);
 
-  // QR code
-  const [showQr, setShowQr] = useState(false);
-
   // LINE integration
   const [linkingLine, setLinkingLine] = useState(false);
   const [unlinkingLine, setUnlinkingLine] = useState(false);
@@ -77,7 +73,6 @@ export function EventPage() {
   }
 
   const participantUrl = `${window.location.origin}/join/${event.id}`;
-  const arriveUrl = `${window.location.origin}/events/${event.id}/arrive`;
   const allResponses: ParticipantResponse[] = event.participant_responses || [];
   const candidateDates = event.candidate_dates || [];
   const primaryVenues = (event.venue_selections || []).filter((v) => v.venue_type === 'primary');
@@ -240,26 +235,14 @@ export function EventPage() {
             <Input value={participantUrl} readOnly className="flex-1" />
             <Button onClick={handleCopyLink} variant="outline">{copied ? 'コピー済み' : 'コピー'}</Button>
           </div>
-          <Button variant="outline" size="sm" onClick={() => setShowQr(!showQr)}>
-            {showQr ? 'QRコードを隠す' : 'QRコードを表示'}
-          </Button>
-          {showQr && (
-            <div className="space-y-4 pt-2">
-              <div className="space-y-2">
-                <p className="text-sm font-medium">参加者ページ</p>
-                <div className="flex justify-center bg-white p-4 rounded-lg">
-                  <QRCodeSVG value={participantUrl} size={180} />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <p className="text-sm font-medium">遅刻者用リンク（到着連絡ページ）</p>
-                <div className="flex justify-center bg-white p-4 rounded-lg">
-                  <QRCodeSVG value={arriveUrl} size={180} />
-                </div>
-                <p className="text-xs text-muted-foreground text-center break-all">{arriveUrl}</p>
-              </div>
-            </div>
-          )}
+          <a
+            href={participantUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block text-center text-sm text-primary hover:underline"
+          >
+            参加者ページを開く →
+          </a>
         </CardContent>
       </Card>
 
