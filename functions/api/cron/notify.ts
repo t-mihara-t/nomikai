@@ -28,6 +28,13 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     return Response.json({ sent: 0, message: 'LINE not configured' });
   }
 
+  // Check if LINE columns exist
+  try {
+    await db.prepare('SELECT line_reminder_sent FROM arrivals LIMIT 0').all();
+  } catch {
+    return Response.json({ sent: 0, message: 'LINE columns not yet migrated' });
+  }
+
   // Find arrivals where:
   // - status is 'approaching'
   // - line_reminder_sent = 0
