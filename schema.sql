@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS events (
   parent_event_id INTEGER,
   auto_delete_at TEXT,
   is_active INTEGER NOT NULL DEFAULT 1,
+  line_user_id TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   FOREIGN KEY (parent_event_id) REFERENCES events(id) ON DELETE SET NULL
 );
@@ -75,6 +76,9 @@ CREATE TABLE IF NOT EXISTS arrivals (
   eta_minutes INTEGER,
   message TEXT,
   status TEXT NOT NULL DEFAULT 'approaching' CHECK (status IN ('approaching', 'arrived', 'dismissed')),
+  line_notified INTEGER NOT NULL DEFAULT 0,
+  line_reminder_sent INTEGER NOT NULL DEFAULT 0,
+  reminder_at TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
   FOREIGN KEY (participant_id) REFERENCES participants(id) ON DELETE CASCADE

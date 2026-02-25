@@ -248,4 +248,18 @@ export const api = {
     return fetchJson(`${API_BASE}/custom-venues/${id}`, { method: 'DELETE' });
   },
 
+  // LINE Integration
+  getLineAuthUrl(eventId: number): Promise<{ auth_url: string }> {
+    return fetchJson(`${API_BASE}/events/${eventId}/line-link`);
+  },
+
+  unlinkLine(eventId: number): Promise<{ success: boolean }> {
+    return fetchJson(`${API_BASE}/events/${eventId}/line-link`, { method: 'DELETE' });
+  },
+
+  // Trigger LINE reminder check (called during polling)
+  checkLineReminders(): Promise<{ sent: number; checked: number }> {
+    return fetchJson(`${API_BASE}/cron/notify`, { method: 'POST' });
+  },
+
 };

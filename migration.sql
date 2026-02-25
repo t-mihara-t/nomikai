@@ -99,3 +99,9 @@ CREATE TABLE IF NOT EXISTS custom_venue_links (
 );
 
 CREATE INDEX IF NOT EXISTS idx_custom_venue_links_event_id ON custom_venue_links(event_id);
+
+-- Add LINE integration columns
+ALTER TABLE events ADD COLUMN line_user_id TEXT;
+ALTER TABLE arrivals ADD COLUMN line_notified INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE arrivals ADD COLUMN line_reminder_sent INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE arrivals ADD COLUMN reminder_at TEXT;

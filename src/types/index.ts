@@ -17,6 +17,7 @@ export interface Event {
   parent_event_id: number | null;
   auto_delete_at: string | null;
   is_active: boolean;
+  line_user_id: string | null;
   created_at: string;
   candidate_dates: CandidateDate[];
 }
@@ -53,6 +54,9 @@ export interface Arrival {
   eta_minutes: number | null;
   message: string | null;
   status: 'approaching' | 'arrived' | 'dismissed';
+  line_notified: boolean;
+  line_reminder_sent: boolean;
+  reminder_at: string | null;
   created_at: string;
 }
 
