@@ -9,6 +9,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ params, request, env }
     drinker_ratio: number;
     kampa_amount?: number;
     rounding: 'ceil' | 'floor';
+    apply_discount?: boolean;
   }>();
 
   if (!body.total_amount || body.total_amount <= 0) {
@@ -40,9 +41,13 @@ export const onRequestPost: PagesFunction<Env> = async ({ params, request, env }
   let totalWeight = 0;
   const pWeights: { id: number; name: string; multiplier: number; is_drinker: boolean; discount_rate: number; weight: number }[] = [];
 
+  const applyDiscount = body.apply_discount !== false; // default true
+
   for (const p of participants) {
     const multiplier = (p.multiplier as number) || 1.0;
-    const discountRate = (p.discount_rate as number) || 0.0;
+    const rawDiscount = (p.discount_rate as number) || 0.0;
+    // When discount disabled, only keep guest (100%OFF) discount
+    const discountRate = applyDiscount ? rawDiscount : (rawDiscount >= 1.0 ? rawDiscount : 0);
     const isDrinker = !!p.is_drinker;
     const drinkFactor = isDrinker ? body.drinker_ratio : 1.0;
     const weight = multiplier * drinkFactor * (1 - discountRate);

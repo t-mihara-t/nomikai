@@ -170,12 +170,22 @@ export function DrinkOrderList({ orders, onConfirm, onDelete }: DrinkOrderListPr
           <div className="space-y-2">
             <p className="text-sm font-medium text-green-600">注文済み</p>
             {confirmed.map((order) => (
-              <div key={order.id} className="flex items-center justify-between rounded-lg border border-border bg-muted p-2 text-sm">
-                <span>
+              <div key={order.id} className="flex items-center justify-between rounded-lg border border-border bg-muted p-2 text-sm gap-2">
+                <span className="flex-1 min-w-0">
                   {order.participant_name}: {order.drink_name}
                   {order.quantity > 1 && ` ×${order.quantity}`}
                 </span>
-                <Badge variant="success">済</Badge>
+                <div className="flex items-center gap-1">
+                  <Badge variant="success">済</Badge>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs h-7"
+                    onClick={() => onDelete(order.id)}
+                  >
+                    削除
+                  </Button>
+                </div>
               </div>
             ))}
           </div>

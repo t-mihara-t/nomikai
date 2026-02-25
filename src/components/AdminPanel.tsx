@@ -20,6 +20,7 @@ interface AdminPanelProps {
     drinker_ratio: number;
     kampa_amount: number;
     rounding: 'ceil' | 'floor';
+    apply_discount?: boolean;
   }) => Promise<CalculateResult | null>;
   loading?: boolean;
 }
@@ -36,6 +37,7 @@ export function AdminPanel({
   const [kampaAmount, setKampaAmount] = useState(currentKampaAmount?.toString() || '0');
   const [drinkerRatio, setDrinkerRatio] = useState(currentDrinkerRatio);
   const [rounding, setRounding] = useState<'ceil' | 'floor'>('ceil');
+  const [applyDiscount, setApplyDiscount] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<CalculateResult | null>(null);
   const [confirmed, setConfirmed] = useState<CalculateResult | null>(null);
@@ -52,7 +54,7 @@ export function AdminPanel({
       return;
     }
     if (kampa >= amount) {
-      setError('カンパ額が合計金額以上です');
+      setError('繰越金等が合計金額以上です');
       return;
     }
     if (attending.length === 0) {
@@ -60,7 +62,11 @@ export function AdminPanel({
       return;
     }
 
-    const result = calculateSplit(amount, attending, drinkerRatio, kampa, rounding);
+    // When discount is disabled, override discount_rate to 0 (except guests with 100%OFF)
+    const effectiveAttending = applyDiscount
+      ? attending
+      : attending.map((p) => ({ ...p, discount_rate: p.discount_rate >= 1.0 ? p.discount_rate : 0 }));
+    const result = calculateSplit(amount, effectiveAttending, drinkerRatio, kampa, rounding);
     setPreview(result);
     setConfirmed(null);
   };
@@ -75,6 +81,7 @@ export function AdminPanel({
       drinker_ratio: drinkerRatio,
       kampa_amount: kampa,
       rounding,
+      apply_discount: applyDiscount,
     });
 
     if (result) {
@@ -110,7 +117,7 @@ export function AdminPanel({
               <Input id="total-amount" type="number" placeholder="例: 30000" value={totalAmount} onChange={(e) => setTotalAmount(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="kampa-amount">カンパ総額 (円)</Label>
+              <Label htmlFor="kampa-amount">繰越金等 (円)</Label>
               <Input id="kampa-amount" type="number" placeholder="0" value={kampaAmount} onChange={(e) => setKampaAmount(e.target.value)} />
             </div>
           </div>
@@ -131,6 +138,20 @@ export function AdminPanel({
               <option value="ceil">100円単位で切り上げ</option>
               <option value="floor">100円単位で切り捨て</option>
             </Select>
+          </div>
+
+          <div className="flex items-center justify-between rounded-lg border border-border p-3">
+            <div>
+              <p className="text-sm font-medium">遅刻・早退割引</p>
+              <p className="text-[10px] text-muted-foreground">飲み放題・コース料金の場合はOFFに</p>
+            </div>
+            <Button
+              variant={applyDiscount ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setApplyDiscount(!applyDiscount)}
+            >
+              {applyDiscount ? 'ON' : 'OFF'}
+            </Button>
           </div>
 
           {error && <p className="text-sm text-destructive">{error}</p>}
@@ -168,7 +189,7 @@ function BreakdownCard({ result, totalAmount, label, labelColor }: { result: Cal
             </div>
             {result.kampa_amount > 0 && (
               <div>
-                <p className="text-muted-foreground">カンパ総額</p>
+                <p className="text-muted-foreground">繰越金等</p>
                 <p className="text-lg font-semibold text-green-600">-{result.kampa_amount.toLocaleString()}円</p>
               </div>
             )}
