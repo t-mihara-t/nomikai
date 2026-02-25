@@ -207,6 +207,107 @@ export function JoinPage() {
         {event.has_after_party && <Badge variant="secondary" className="mt-2">二次会あり</Badge>}
       </div>
 
+      {/* 出欠確認セクション（メイン） */}
+      <Card className="border-2 border-primary">
+        <CardHeader className="bg-primary/5 pb-3">
+          <CardTitle className="text-xl text-center">出欠確認</CardTitle>
+          {!submitted && !selectedParticipant && !isSelfMode && (
+            <p className="text-sm text-muted-foreground text-center mt-1">あなたの名前を選んでください</p>
+          )}
+        </CardHeader>
+        <CardContent className="pt-4 space-y-4">
+          {submitted ? (
+            <div className="text-center space-y-4 py-2">
+              <p className="text-lg font-semibold">回答を送信しました！</p>
+              <p className="text-sm text-muted-foreground">ありがとうございます。</p>
+              <Button variant="outline" onClick={handleReset}>別の人の回答をする</Button>
+            </div>
+          ) : !selectedParticipant && !isSelfMode ? (
+            <div className="space-y-4">
+              {event.participants.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">事前登録リストから選択:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {event.participants.map((p) => (
+                      <Button key={p.id} variant="outline" size="sm" onClick={() => handleSelectParticipant(p)}>
+                        {p.name}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div className="border-t border-border pt-4">
+                <Button variant="outline" className="w-full" onClick={handleStartSelfAdd}>
+                  リストにない場合はこちら（名前を追加）
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="text-base font-medium">
+                  {isSelfMode ? '新規参加者の回答' : `${selectedParticipant!.name}さんの回答`}
+                </p>
+                <Button variant="outline" size="sm" onClick={handleReset}>名前を変更</Button>
+              </div>
+
+              {isSelfMode && (
+                <div className="space-y-2">
+                  <Label>名前</Label>
+                  <Input placeholder="例: 田中太郎" value={selfName} onChange={(e) => setSelfName(e.target.value)} />
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label>飲酒</Label>
+                <div className="flex gap-2">
+                  <Button type="button" variant={isDrinker ? 'default' : 'outline'} size="sm" onClick={() => setIsDrinker(true)}>飲む</Button>
+                  <Button type="button" variant={!isDrinker ? 'default' : 'outline'} size="sm" onClick={() => setIsDrinker(false)}>飲まない</Button>
+                </div>
+              </div>
+
+              {candidateDates.length > 0 ? (
+                <div className="space-y-4">
+                  <Label>候補日時ごとの参加可否</Label>
+                  {candidateDates.map((cd) => (
+                    <div key={cd.id} className="rounded-lg border border-border p-3 space-y-2">
+                      <p className="text-sm font-medium">{formatDateTime(cd.date_time)}</p>
+                      <div className="space-y-2">
+                        <p className="text-xs text-muted-foreground">一次会:</p>
+                        <div className="flex gap-1">
+                          <StatusButton label="参加" active={responses[cd.id] === 'attending'} onClick={() => setResponses((prev) => ({ ...prev, [cd.id]: 'attending' }))} />
+                          <StatusButton label="保留" active={responses[cd.id] === 'pending'} onClick={() => setResponses((prev) => ({ ...prev, [cd.id]: 'pending' }))} />
+                          <StatusButton label="不参加" active={responses[cd.id] === 'absent'} onClick={() => setResponses((prev) => ({ ...prev, [cd.id]: 'absent' }))} />
+                        </div>
+                        {!responses[cd.id] && <p className="text-[10px] text-amber-600">未回答</p>}
+                      </div>
+                      {event.has_after_party && (
+                        <div className="space-y-2">
+                          <p className="text-xs text-muted-foreground">二次会:</p>
+                          <div className="flex gap-1">
+                            <StatusButton label="参加" active={afterPartyResponses[cd.id] === 'attending'} onClick={() => setAfterPartyResponses((prev) => ({ ...prev, [cd.id]: 'attending' }))} />
+                            <StatusButton label="保留" active={afterPartyResponses[cd.id] === 'pending'} onClick={() => setAfterPartyResponses((prev) => ({ ...prev, [cd.id]: 'pending' }))} />
+                            <StatusButton label="不参加" active={afterPartyResponses[cd.id] === 'absent'} onClick={() => setAfterPartyResponses((prev) => ({ ...prev, [cd.id]: 'absent' }))} />
+                          </div>
+                          {!afterPartyResponses[cd.id] && <p className="text-[10px] text-amber-600">未回答</p>}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">候補日時がまだ設定されていません</p>
+              )}
+
+              {formError && <p className="text-sm text-destructive">{formError}</p>}
+              <Button onClick={handleSubmitResponses} disabled={submitting} className="w-full">
+                {submitting ? '送信中...' : isSelfMode ? '追加して回答を送信' : '回答を送信'}
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* このページのQRコード + 遅刻者ページリンク */}
       <Card>
         <CardContent className="p-4 space-y-3">
@@ -273,104 +374,6 @@ export function JoinPage() {
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">幹事のPayPay ID:</p>
             <p className="font-mono font-semibold">{event.paypay_id}</p>
-          </CardContent>
-        </Card>
-      )}
-
-      {submitted ? (
-        <Card>
-          <CardContent className="p-6 text-center space-y-4">
-            <p className="text-lg font-semibold">回答を送信しました！</p>
-            <p className="text-sm text-muted-foreground">ありがとうございます。</p>
-            <Button variant="outline" onClick={handleReset}>別の人の回答をする</Button>
-          </CardContent>
-        </Card>
-      ) : !selectedParticipant && !isSelfMode ? (
-        <Card>
-          <CardHeader><CardTitle className="text-lg">あなたの名前を選んでください</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            {event.participants.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">事前登録リストから選択:</p>
-                <div className="flex flex-wrap gap-2">
-                  {event.participants.map((p) => (
-                    <Button key={p.id} variant="outline" size="sm" onClick={() => handleSelectParticipant(p)}>
-                      {p.name}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            )}
-            <div className="border-t border-border pt-4">
-              <Button variant="outline" className="w-full" onClick={handleStartSelfAdd}>
-                リストにない場合はこちら（名前を追加）
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">
-                {isSelfMode ? '新規参加者の回答' : `${selectedParticipant!.name}さんの回答`}
-              </CardTitle>
-              <Button variant="outline" size="sm" onClick={handleReset}>名前を変更</Button>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {isSelfMode && (
-              <div className="space-y-2">
-                <Label>名前</Label>
-                <Input placeholder="例: 田中太郎" value={selfName} onChange={(e) => setSelfName(e.target.value)} />
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <Label>飲酒</Label>
-              <div className="flex gap-2">
-                <Button type="button" variant={isDrinker ? 'default' : 'outline'} size="sm" onClick={() => setIsDrinker(true)}>飲む</Button>
-                <Button type="button" variant={!isDrinker ? 'default' : 'outline'} size="sm" onClick={() => setIsDrinker(false)}>飲まない</Button>
-              </div>
-            </div>
-
-            {candidateDates.length > 0 ? (
-              <div className="space-y-4">
-                <Label>候補日時ごとの参加可否</Label>
-                {candidateDates.map((cd) => (
-                  <div key={cd.id} className="rounded-lg border border-border p-3 space-y-2">
-                    <p className="text-sm font-medium">{formatDateTime(cd.date_time)}</p>
-                    <div className="space-y-2">
-                      <p className="text-xs text-muted-foreground">一次会:</p>
-                      <div className="flex gap-1">
-                        <StatusButton label="参加" active={responses[cd.id] === 'attending'} onClick={() => setResponses((prev) => ({ ...prev, [cd.id]: 'attending' }))} />
-                        <StatusButton label="保留" active={responses[cd.id] === 'pending'} onClick={() => setResponses((prev) => ({ ...prev, [cd.id]: 'pending' }))} />
-                        <StatusButton label="不参加" active={responses[cd.id] === 'absent'} onClick={() => setResponses((prev) => ({ ...prev, [cd.id]: 'absent' }))} />
-                      </div>
-                      {!responses[cd.id] && <p className="text-[10px] text-amber-600">未回答</p>}
-                    </div>
-                    {event.has_after_party && (
-                      <div className="space-y-2">
-                        <p className="text-xs text-muted-foreground">二次会:</p>
-                        <div className="flex gap-1">
-                          <StatusButton label="参加" active={afterPartyResponses[cd.id] === 'attending'} onClick={() => setAfterPartyResponses((prev) => ({ ...prev, [cd.id]: 'attending' }))} />
-                          <StatusButton label="保留" active={afterPartyResponses[cd.id] === 'pending'} onClick={() => setAfterPartyResponses((prev) => ({ ...prev, [cd.id]: 'pending' }))} />
-                          <StatusButton label="不参加" active={afterPartyResponses[cd.id] === 'absent'} onClick={() => setAfterPartyResponses((prev) => ({ ...prev, [cd.id]: 'absent' }))} />
-                        </div>
-                        {!afterPartyResponses[cd.id] && <p className="text-[10px] text-amber-600">未回答</p>}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">候補日時がまだ設定されていません</p>
-            )}
-
-            {formError && <p className="text-sm text-destructive">{formError}</p>}
-            <Button onClick={handleSubmitResponses} disabled={submitting} className="w-full">
-              {submitting ? '送信中...' : isSelfMode ? '追加して回答を送信' : '回答を送信'}
-            </Button>
           </CardContent>
         </Card>
       )}
