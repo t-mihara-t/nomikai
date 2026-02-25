@@ -267,7 +267,7 @@ export const api = {
   },
 
   // LINE Integration
-  getLineAuthUrl(eventId: number): Promise<{ auth_url: string }> {
+  getLineAuthUrl(eventId: number): Promise<{ auth_url: string; redirect_uri: string }> {
     return fetchJson(`${API_BASE}/events/${eventId}/line-link`);
   },
 

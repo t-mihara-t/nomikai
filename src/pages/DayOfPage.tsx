@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEventDetail, useCalculate } from '@/hooks/useEventData';
 import { api } from '@/lib/api';
@@ -130,21 +130,24 @@ export function DayOfPage() {
   }, [checkForNewArrivals, refetch, autoRefresh]);
 
   // Auto-create after-party event if has_after_party is enabled but event doesn't exist
+  // Use ref to prevent re-creation loop (event object changes on every refetch)
+  const autoCreateAttemptedRef = useRef(false);
   useEffect(() => {
     if (!event) return;
     if (!event.has_after_party) return;
-    if (event.after_party_event) return;
-    if (creatingAfterParty) return;
+    if (event.after_party_event) { autoCreateAttemptedRef.current = false; return; }
+    if (autoCreateAttemptedRef.current) return;
 
     const selected = event.participants.filter((p) => p.join_after_party && p.status === 'attending');
     if (selected.length === 0) return;
 
+    autoCreateAttemptedRef.current = true;
     setCreatingAfterParty(true);
     api.createAfterPartyEvent(event.id, { participant_ids: selected.map((p) => p.id) })
       .then(() => refetch())
-      .catch(() => {})
+      .catch(() => { autoCreateAttemptedRef.current = false; })
       .finally(() => setCreatingAfterParty(false));
-  }, [event, creatingAfterParty, refetch]);
+  }, [event, refetch]);
 
   if (loading) {
     return (
