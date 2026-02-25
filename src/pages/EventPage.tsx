@@ -487,7 +487,7 @@ export function EventPage() {
           >
             食べログでお店を探す →
           </a>
-          <p className="text-[10px] text-muted-foreground mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             ※食べログは公式APIが限定的なため、外部リンクでの検索となります
           </p>
         </CardContent>
@@ -570,7 +570,7 @@ export function EventPage() {
           >
             当日ページを開く（出欠確認・精算）
           </Button>
-          <p className="text-[10px] text-muted-foreground mt-2 text-center">
+          <p className="text-xs text-muted-foreground mt-2 text-center">
             当日の出欠確認、精算設定、精算テキスト生成はこちら
           </p>
         </CardContent>

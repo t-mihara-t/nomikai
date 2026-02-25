@@ -279,7 +279,7 @@ export function JoinPage() {
                           <StatusButton label="保留" active={responses[cd.id] === 'pending'} onClick={() => setResponses((prev) => ({ ...prev, [cd.id]: 'pending' }))} />
                           <StatusButton label="不参加" active={responses[cd.id] === 'absent'} onClick={() => setResponses((prev) => ({ ...prev, [cd.id]: 'absent' }))} />
                         </div>
-                        {!responses[cd.id] && <p className="text-[10px] text-amber-600">未回答</p>}
+                        {!responses[cd.id] && <p className="text-xs text-amber-600">未回答</p>}
                       </div>
                       {event.has_after_party && (
                         <div className="space-y-2">
@@ -289,7 +289,7 @@ export function JoinPage() {
                             <StatusButton label="保留" active={afterPartyResponses[cd.id] === 'pending'} onClick={() => setAfterPartyResponses((prev) => ({ ...prev, [cd.id]: 'pending' }))} />
                             <StatusButton label="不参加" active={afterPartyResponses[cd.id] === 'absent'} onClick={() => setAfterPartyResponses((prev) => ({ ...prev, [cd.id]: 'absent' }))} />
                           </div>
-                          {!afterPartyResponses[cd.id] && <p className="text-[10px] text-amber-600">未回答</p>}
+                          {!afterPartyResponses[cd.id] && <p className="text-xs text-amber-600">未回答</p>}
                         </div>
                       )}
                     </div>

@@ -143,7 +143,7 @@ export function AdminPanel({
           <div className="flex items-center justify-between rounded-lg border border-border p-3">
             <div>
               <p className="text-sm font-medium">遅刻・早退割引</p>
-              <p className="text-[10px] text-muted-foreground">飲み放題・コース料金の場合はOFFに</p>
+              <p className="text-xs text-muted-foreground">飲み放題・コース料金の場合はOFFに</p>
             </div>
             <Button
               variant={applyDiscount ? 'default' : 'outline'}
@@ -239,12 +239,12 @@ function BreakdownRow({ b }: { b: ParticipantBreakdown }) {
           <span className="font-medium">{b.name}</span>
           <div className="flex gap-1">
             {isGuest ? (
-              <Badge variant="secondary" className="text-[10px]">招待（無料）</Badge>
+              <Badge variant="secondary" className="text-xs">招待（無料）</Badge>
             ) : (
               <>
-                {b.is_drinker && <Badge variant="warning" className="text-[10px]">飲む</Badge>}
-                {b.multiplier !== 1.0 && <Badge variant="outline" className="text-[10px]">{b.multiplier}倍</Badge>}
-                {b.discount_rate > 0 && <Badge variant="secondary" className="text-[10px]">{Math.round(b.discount_rate * 100)}%OFF</Badge>}
+                {b.is_drinker && <Badge variant="warning" className="text-xs">飲む</Badge>}
+                {b.multiplier !== 1.0 && <Badge variant="outline" className="text-xs">{b.multiplier}倍</Badge>}
+                {b.discount_rate > 0 && <Badge variant="secondary" className="text-xs">{Math.round(b.discount_rate * 100)}%OFF</Badge>}
               </>
             )}
           </div>
@@ -252,7 +252,7 @@ function BreakdownRow({ b }: { b: ParticipantBreakdown }) {
         <span className="font-bold text-primary">{b.final_amount.toLocaleString()}円</span>
       </div>
       {!isGuest && hasCustom && (
-        <p className="text-[10px] text-muted-foreground mt-1">
+        <p className="text-xs text-muted-foreground mt-1">
           {b.base_amount.toLocaleString()}円
           {b.multiplier !== 1.0 && ` × ${b.multiplier}`}
           {b.is_drinker && b.drinker_ratio > 1 && ` × ${b.drinker_ratio}(飲)`}

@@ -72,7 +72,10 @@ export function ParticipantList({
     <Card>
       <CardHeader>
         <CardTitle className="text-lg">
-          参加者一覧 ({attending.length}名参加 / {pending.length}名保留 / {absent.length}名不参加)
+          参加者一覧
+          <span className="block text-sm font-normal text-muted-foreground mt-1">
+            {attending.length}名参加 / {pending.length}名保留 / {absent.length}名不参加
+          </span>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -113,13 +116,13 @@ export function ParticipantList({
                         </Badge>
                       )}
                       {p.multiplier !== 1.0 && (
-                        <Badge variant="outline" className="text-[10px]">{p.multiplier}倍</Badge>
+                        <Badge variant="outline" className="text-xs">{p.multiplier}倍</Badge>
                       )}
                       {p.discount_rate > 0 && p.discount_rate < 1.0 && (
-                        <Badge variant="secondary" className="text-[10px]">{Math.round(p.discount_rate * 100)}%OFF</Badge>
+                        <Badge variant="secondary" className="text-xs">{Math.round(p.discount_rate * 100)}%OFF</Badge>
                       )}
                       {p.discount_rate >= 1.0 && (
-                        <Badge variant="secondary" className="text-[10px]">招待（無料）</Badge>
+                        <Badge variant="secondary" className="text-xs">招待（無料）</Badge>
                       )}
                       {p.amount_to_pay != null && p.status === 'attending' && (
                         <Badge variant="outline">{p.amount_to_pay.toLocaleString()}円</Badge>
@@ -180,7 +183,7 @@ export function ParticipantList({
                             >
                               {p.discount_rate >= 1.0 ? '招待中（無料）' : '招待にする'}
                             </Button>
-                            <span className="text-[10px] text-muted-foreground">送別会・歓迎会の主賓など</span>
+                            <span className="text-xs text-muted-foreground">送別会・歓迎会の主賓など</span>
                           </div>
                         </div>
                       )}
