@@ -289,7 +289,7 @@ export function EventPage() {
       <Card>
         <CardContent className="p-4 space-y-2">
           <div className="flex items-center justify-between">
-            <div>
+            <div className="flex-1 min-w-0">
               <p className="font-medium text-sm">LINE通知</p>
               <p className="text-xs text-muted-foreground">
                 {event.line_user_id
@@ -315,12 +315,18 @@ export function EventPage() {
                 size="sm"
                 onClick={handleLinkLine}
                 disabled={linkingLine}
-                className="bg-[#06C755] hover:bg-[#05b34d] text-white"
+                className="bg-[#06C755] hover:bg-[#05b34d] text-white shrink-0"
               >
                 {linkingLine ? '接続中...' : 'LINE連携'}
               </Button>
             )}
           </div>
+          {!event.line_user_id && (
+            <div className="text-xs text-muted-foreground bg-muted rounded-lg p-2 space-y-1">
+              <p>LINE Developersコンソールで以下のコールバックURLを登録してください:</p>
+              <code className="text-xs bg-background rounded px-1 py-0.5 break-all">{window.location.origin}/line-callback</code>
+            </div>
+          )}
         </CardContent>
       </Card>
 

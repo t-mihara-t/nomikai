@@ -39,9 +39,9 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       `&client_id=${channelId}` +
       `&redirect_uri=${encodeURIComponent(redirectUri)}` +
       `&state=${state}` +
-      `&scope=profile`;
+      `&scope=profile%20openid`;
 
-    return Response.json({ auth_url: authUrl });
+    return Response.json({ auth_url: authUrl, redirect_uri: redirectUri });
   }
 
   if (context.request.method === 'POST') {
