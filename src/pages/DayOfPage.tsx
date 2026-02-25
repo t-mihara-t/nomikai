@@ -64,6 +64,7 @@ export function DayOfPage() {
   const [settlementCopied, setSettlementCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('primary');
   const [creatingAfterParty, setCreatingAfterParty] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(true);
 
   // Arrival notification state
   const [heroicArrival, setHeroicArrival] = useState<Arrival | null>(null);
@@ -118,6 +119,7 @@ export function DayOfPage() {
   }, [event?.arrivals]);
 
   useEffect(() => {
+    if (!autoRefresh) return;
     const interval = setInterval(() => {
       checkForNewArrivals();
       refetch(); // Also refresh event data (drink orders, etc.)
@@ -125,7 +127,24 @@ export function DayOfPage() {
       api.checkLineReminders().catch(() => {});
     }, 10000);
     return () => clearInterval(interval);
-  }, [checkForNewArrivals, refetch]);
+  }, [checkForNewArrivals, refetch, autoRefresh]);
+
+  // Auto-create after-party event if has_after_party is enabled but event doesn't exist
+  useEffect(() => {
+    if (!event) return;
+    if (!event.has_after_party) return;
+    if (event.after_party_event) return;
+    if (creatingAfterParty) return;
+
+    const selected = event.participants.filter((p) => p.join_after_party && p.status === 'attending');
+    if (selected.length === 0) return;
+
+    setCreatingAfterParty(true);
+    api.createAfterPartyEvent(event.id, { participant_ids: selected.map((p) => p.id) })
+      .then(() => refetch())
+      .catch(() => {})
+      .finally(() => setCreatingAfterParty(false));
+  }, [event, creatingAfterParty, refetch]);
 
   if (loading) {
     return (
@@ -328,11 +347,19 @@ export function DayOfPage() {
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button variant="outline" size="sm" onClick={() => navigate(`/events/${event.id}`)}>← 幹事ページ</Button>
-        <div>
+        <div className="flex-1 min-w-0">
           <h1 className="text-2xl font-bold">{event.name}</h1>
           <p className="text-sm text-muted-foreground">{event.date}</p>
           <Badge variant="secondary" className="mt-1">当日ページ</Badge>
         </div>
+        <Button
+          variant={autoRefresh ? 'default' : 'outline'}
+          size="sm"
+          className="shrink-0"
+          onClick={() => setAutoRefresh(!autoRefresh)}
+        >
+          {autoRefresh ? '自動更新ON' : '自動更新OFF'}
+        </Button>
       </div>
 
       {/* Arrival notifications bar */}
@@ -350,10 +377,10 @@ export function DayOfPage() {
                 )}
                 <div className="flex gap-1 mt-1">
                   {arrival.line_notified && (
-                    <Badge variant="default" className="text-[10px] bg-[#06C755]">LINE通知済</Badge>
+                    <Badge variant="default" className="text-xs bg-[#06C755]">LINE通知済</Badge>
                   )}
                   {arrival.line_reminder_sent && (
-                    <Badge variant="default" className="text-[10px] bg-[#D32F2F]">5分前リマインド済</Badge>
+                    <Badge variant="default" className="text-xs bg-[#D32F2F]">5分前リマインド済</Badge>
                   )}
                 </div>
               </div>
@@ -393,7 +420,7 @@ export function DayOfPage() {
           <div className="flex items-center gap-2">
             <p className="text-sm font-medium">遅刻者用リンク</p>
             {event.line_user_id && (
-              <Badge variant="default" className="text-[10px] bg-[#06C755]">LINE通知ON</Badge>
+              <Badge variant="default" className="text-xs bg-[#06C755]">LINE通知ON</Badge>
             )}
           </div>
           <p className="text-xs text-muted-foreground">遅れて来る人にこのリンクを送ると、到着連絡＋ドリンク先注文ができます</p>
@@ -598,9 +625,20 @@ export function DayOfPage() {
           ) : (
             <Card>
               <CardContent className="p-6 text-center space-y-3">
-                <p className="text-muted-foreground">二次会イベントはまだ作成されていません</p>
-                <p className="text-sm text-muted-foreground">一次会タブで「二次会」ボタンでメンバーを選択してから作成してください</p>
-                <Button variant="outline" className="min-h-[48px]" onClick={() => setActiveTab('primary')}>一次会タブに戻る</Button>
+                {creatingAfterParty ? (
+                  <p className="text-muted-foreground">二次会イベントを作成中...</p>
+                ) : (
+                  <>
+                    <p className="text-muted-foreground">二次会イベントはまだ作成されていません</p>
+                    <p className="text-sm text-muted-foreground">
+                      一次会タブで参加者のステータスを「参加」にしてください（二次会に参加するメンバーが必要です）
+                    </p>
+                    <Button onClick={handleCreateAfterParty} className="w-full min-h-[48px]">
+                      二次会イベントを作成
+                    </Button>
+                    <Button variant="outline" className="min-h-[48px]" onClick={() => setActiveTab('primary')}>一次会タブに戻る</Button>
+                  </>
+                )}
               </CardContent>
             </Card>
           )}

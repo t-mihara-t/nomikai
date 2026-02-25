@@ -384,7 +384,7 @@ export function RestaurantSearch({ eventId, hasAfterParty, savedVenues, onVenueC
                 ))}
               </Select>
               {range && (
-                <p className="text-[10px] text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   ※キーワード検索結果の周辺で距離フィルタを適用します
                 </p>
               )}
