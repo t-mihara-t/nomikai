@@ -115,8 +115,11 @@ export function ParticipantList({
                       {p.multiplier !== 1.0 && (
                         <Badge variant="outline" className="text-[10px]">{p.multiplier}倍</Badge>
                       )}
-                      {p.discount_rate > 0 && (
+                      {p.discount_rate > 0 && p.discount_rate < 1.0 && (
                         <Badge variant="secondary" className="text-[10px]">{Math.round(p.discount_rate * 100)}%OFF</Badge>
+                      )}
+                      {p.discount_rate >= 1.0 && (
+                        <Badge variant="secondary" className="text-[10px]">招待（無料）</Badge>
                       )}
                       {p.amount_to_pay != null && p.status === 'attending' && (
                         <Badge variant="outline">{p.amount_to_pay.toLocaleString()}円</Badge>
@@ -166,6 +169,21 @@ export function ParticipantList({
                   {/* Expanded settings */}
                   {isExpanded && (
                     <div className="rounded-lg bg-muted p-3 space-y-3">
+                      {onUpdateDiscount && (
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium">招待（無料）</label>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant={p.discount_rate >= 1.0 ? 'default' : 'outline'}
+                              size="sm" className="text-xs h-7"
+                              onClick={() => onUpdateDiscount(p.id, p.discount_rate >= 1.0 ? 0 : 1.0)}
+                            >
+                              {p.discount_rate >= 1.0 ? '招待中（無料）' : '招待にする'}
+                            </Button>
+                            <span className="text-[10px] text-muted-foreground">送別会・歓迎会の主賓など</span>
+                          </div>
+                        </div>
+                      )}
                       {onUpdateMultiplier && (
                         <div className="space-y-1">
                           <label className="text-xs font-medium">役職倍率</label>
@@ -193,7 +211,7 @@ export function ParticipantList({
                           </div>
                         </div>
                       )}
-                      {onUpdateDiscount && (
+                      {onUpdateDiscount && p.discount_rate < 1.0 && (
                         <div className="space-y-1">
                           <label className="text-xs font-medium">遅刻・早退割引</label>
                           <div className="flex gap-1 flex-wrap">

@@ -66,7 +66,7 @@ export function useCalculate() {
   const calculate = useCallback(
     async (
       eventId: number,
-      data: { total_amount: number; drinker_ratio: number; kampa_amount: number; rounding: 'ceil' | 'floor' }
+      data: { total_amount: number; drinker_ratio: number; kampa_amount: number; rounding: 'ceil' | 'floor'; apply_discount?: boolean }
     ) => {
       try {
         setLoading(true);

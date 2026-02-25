@@ -280,7 +280,7 @@ export function DayOfPage() {
     if (ev.total_amount) {
       lines.push(`合計金額: ${ev.total_amount.toLocaleString()}円`);
       if (ev.kampa_amount > 0) {
-        lines.push(`カンパ: -${ev.kampa_amount.toLocaleString()}円`);
+        lines.push(`繰越金等: -${ev.kampa_amount.toLocaleString()}円`);
       }
       lines.push(`参加者: ${attending.length}名`);
       lines.push(``);

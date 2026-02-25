@@ -149,7 +149,7 @@ export const api = {
   // Calculate
   calculate(
     eventId: number,
-    data: { total_amount: number; drinker_ratio: number; kampa_amount: number; rounding: 'ceil' | 'floor' }
+    data: { total_amount: number; drinker_ratio: number; kampa_amount: number; rounding: 'ceil' | 'floor'; apply_discount?: boolean }
   ): Promise<CalculateResult> {
     return fetchJson(`${API_BASE}/events/${eventId}/calculate`, {
       method: 'POST',
