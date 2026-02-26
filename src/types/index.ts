@@ -112,6 +112,7 @@ export interface CalculateResult {
   kampa_amount: number;
   adjusted_total: number;
   breakdowns: ParticipantBreakdown[];
+  points_used?: number;
 }
 
 export interface Restaurant {

@@ -125,6 +125,8 @@ export function DayOfPage() {
       refetch(); // Also refresh event data (drink orders, etc.)
       // Trigger LINE reminder check (server-side sends 5-min-before notifications)
       api.checkLineReminders().catch(() => {});
+      // Trigger recovery actions (last train + convenience store push)
+      api.checkRecoveryActions().catch(() => {});
     }, 10000);
     return () => clearInterval(interval);
   }, [checkForNewArrivals, refetch, autoRefresh]);
@@ -290,6 +292,10 @@ export function DayOfPage() {
     const venueName = label === '二次会'
       ? (afterPartyVenues.length > 0 ? afterPartyVenues[0].restaurant.name : '未定')
       : (primaryVenues.length > 0 ? primaryVenues[0].restaurant.name : '未定');
+
+    const totalCollected = attending.reduce((sum, p) => sum + (p.amount_to_pay || 0), 0);
+    const hasSurplus = ev.total_amount ? (totalCollected > ev.total_amount) : false;
+
     const lines = [
       `【${label || '飲み会'}精算のお知らせ】`,
       ``,
@@ -307,6 +313,7 @@ export function DayOfPage() {
       lines.push(`参加者: ${attending.length}名`);
       lines.push(``);
 
+      lines.push(`--- 確定金額（システム自動計算） ---`);
       attending.forEach((p) => {
         if (p.amount_to_pay != null) {
           const extras = [];
@@ -317,6 +324,11 @@ export function DayOfPage() {
         }
       });
       lines.push(``);
+
+      if (hasSurplus) {
+        lines.push(`※システム規定により、端数（100円未満）を次回の還元基金として積み立て処理しました。`);
+        lines.push(``);
+      }
     }
 
     if (ev.paypay_id) {
