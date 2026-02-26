@@ -112,3 +112,15 @@ CREATE TABLE IF NOT EXISTS custom_venue_links (
 );
 
 CREATE INDEX IF NOT EXISTS idx_custom_venue_links_event_id ON custom_venue_links(event_id);
+
+CREATE TABLE IF NOT EXISTS recruit_points (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  event_id INTEGER NOT NULL,
+  type TEXT NOT NULL CHECK (type IN ('earned', 'contributed')),
+  amount INTEGER NOT NULL,
+  description TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_recruit_points_event_id ON recruit_points(event_id);

@@ -12,6 +12,9 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const lat = url.searchParams.get('lat');
   const lng = url.searchParams.get('lng');
 
+  const freeDrink = url.searchParams.get('free_drink');
+  const card = url.searchParams.get('card');
+
   const apiKey = env.HOTPEPPER_API_KEY;
   if (!apiKey) {
     return Response.json(
@@ -32,6 +35,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   if (lng) params.set('lng', lng);
   // range only works with lat/lng, not keyword-only search
   if (range && lat && lng) params.set('range', range);
+  if (freeDrink === '1') params.set('free_drink', '1');
+  if (card === '1') params.set('card', '1');
   // party_capacity is a response field only, not a search param - filtered client-side
 
   // At least keyword or lat/lng is required

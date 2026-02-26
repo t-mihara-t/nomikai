@@ -1,4 +1,4 @@
-import type { Event, EventWithParticipants, Participant, CandidateDate, CalculateResult, RestaurantSearchResult, VenueSelection, Restaurant, ParticipantResponse, Arrival, DrinkOrder, CustomVenueLink } from '@/types';
+import type { Event, EventWithParticipants, Participant, CandidateDate, CalculateResult, RestaurantSearchResult, VenueSelection, Restaurant, ParticipantResponse, Arrival, DrinkOrder, CustomVenueLink, PointsSummary, RecruitPointRecord } from '@/types';
 
 const API_BASE = '/api';
 
@@ -136,6 +136,8 @@ export const api = {
     party_capacity?: number;
     lat?: number;
     lng?: number;
+    free_drink?: boolean;
+    card?: boolean;
   }): Promise<RestaurantSearchResult> {
     const params = new URLSearchParams();
     if (options.keyword) params.set('keyword', options.keyword);
@@ -145,6 +147,8 @@ export const api = {
     if (options.party_capacity) params.set('party_capacity', options.party_capacity.toString());
     if (options.lat) params.set('lat', options.lat.toString());
     if (options.lng) params.set('lng', options.lng.toString());
+    if (options.free_drink) params.set('free_drink', '1');
+    if (options.card) params.set('card', '1');
     return fetchJson(`${API_BASE}/restaurants?${params.toString()}`);
   },
 
@@ -278,6 +282,21 @@ export const api = {
   // Trigger LINE reminder check (called during polling)
   checkLineReminders(): Promise<{ sent: number; checked: number }> {
     return fetchJson(`${API_BASE}/cron/notify`, { method: 'POST' });
+  },
+
+  // Recruit Points
+  getPoints(eventId: number): Promise<PointsSummary> {
+    return fetchJson(`${API_BASE}/events/${eventId}/points`);
+  },
+
+  addPoints(
+    eventId: number,
+    data: { type: 'earned' | 'contributed'; amount: number; description?: string }
+  ): Promise<RecruitPointRecord> {
+    return fetchJson(`${API_BASE}/events/${eventId}/points`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   },
 
 };

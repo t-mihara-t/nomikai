@@ -150,6 +150,22 @@ export interface VenueSelection {
   created_at: string;
 }
 
+export interface RecruitPointRecord {
+  id: number;
+  event_id: number;
+  type: 'earned' | 'contributed';
+  amount: number;
+  description: string | null;
+  created_at: string;
+}
+
+export interface PointsSummary {
+  total_earned: number;
+  total_contributed: number;
+  available_balance: number;
+  records: RecruitPointRecord[];
+}
+
 export interface CustomVenueLink {
   id: number;
   event_id: number;

@@ -130,6 +130,8 @@ export function RestaurantSearch({ eventId, hasAfterParty, savedVenues, onVenueC
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
+  const [freeDrink, setFreeDrink] = useState(false);
+  const [cardPayment, setCardPayment] = useState(false);
 
   // After-party search
   const [afterPartyResults, setAfterPartyResults] = useState<Restaurant[]>([]);
@@ -156,6 +158,8 @@ export function RestaurantSearch({ eventId, hasAfterParty, savedVenues, onVenueC
         keyword: keyword.trim(),
         count: 10,
         budget: budget || undefined,
+        free_drink: freeDrink || undefined,
+        card: cardPayment || undefined,
       };
 
       const initialData = await api.searchRestaurants(baseParams);
@@ -412,6 +416,17 @@ export function RestaurantSearch({ eventId, hasAfterParty, savedVenues, onVenueC
                 min="1"
               />
             </div>
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input type="checkbox" checked={freeDrink} onChange={(e) => setFreeDrink(e.target.checked)} className="rounded" />
+              飲み放題あり
+            </label>
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input type="checkbox" checked={cardPayment} onChange={(e) => setCardPayment(e.target.checked)} className="rounded" />
+              カード/電子決済可
+            </label>
           </div>
 
           {error && <p className="text-sm text-destructive">{error}</p>}
