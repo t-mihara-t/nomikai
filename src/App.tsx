@@ -5,6 +5,7 @@ import { JoinPage } from '@/pages/JoinPage';
 import { DayOfPage } from '@/pages/DayOfPage';
 import { ArrivePage } from '@/pages/ArrivePage';
 import { LineCallbackPage } from '@/pages/LineCallbackPage';
+import { ReservePage } from '@/pages/ReservePage';
 
 export default function App() {
   return (
@@ -15,6 +16,7 @@ export default function App() {
           <Route path="/events/:id" element={<EventPage />} />
           <Route path="/events/:id/day" element={<DayOfPage />} />
           <Route path="/events/:id/arrive" element={<ArrivePage />} />
+          <Route path="/events/:id/reserve" element={<ReservePage />} />
           <Route path="/join/:id" element={<JoinPage />} />
           <Route path="/line-callback" element={<LineCallbackPage />} />
         </Routes>

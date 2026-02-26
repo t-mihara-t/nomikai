@@ -476,6 +476,21 @@ export function EventPage() {
         </Card>
       )}
 
+      {/* 店舗予約ページへのリンク */}
+      <Card className="border-2 border-orange-300">
+        <CardContent className="p-4 space-y-2">
+          <Button
+            className="w-full min-h-[48px] text-base font-bold bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white"
+            onClick={() => navigate(`/events/${event.id}/reserve`)}
+          >
+            店舗を予約する（ポイント還元あり）
+          </Button>
+          <p className="text-xs text-muted-foreground text-center">
+            ホットペッパー予約でPontaポイント/dポイント獲得 + ポイント台帳管理
+          </p>
+        </CardContent>
+      </Card>
+
       {/* お店を探す (HotPepper + Tabelog) */}
       <RestaurantSearch
         eventId={event.id}
