@@ -7,7 +7,6 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
-import { RestaurantSearch } from '@/components/RestaurantSearch';
 import type { ParticipantResponse } from '@/types';
 
 function formatDateTime(dt: string) {
@@ -45,12 +44,6 @@ export function EventPage() {
   const [editName, setEditName] = useState(false);
   const [editNameValue, setEditNameValue] = useState('');
 
-  // Custom venue links
-  const [venueLabel, setVenueLabel] = useState('');
-  const [venueUrl, setVenueUrl] = useState('');
-  const [venueType, setVenueType] = useState<'primary' | 'after_party'>('primary');
-  const [addingVenueLink, setAddingVenueLink] = useState(false);
-
   // LINE integration
   const [linkingLine, setLinkingLine] = useState(false);
   const [unlinkingLine, setUnlinkingLine] = useState(false);
@@ -75,8 +68,6 @@ export function EventPage() {
   const participantUrl = `${window.location.origin}/join/${event.id}`;
   const allResponses: ParticipantResponse[] = event.participant_responses || [];
   const candidateDates = event.candidate_dates || [];
-  const primaryVenues = (event.venue_selections || []).filter((v) => v.venue_type === 'primary');
-  const customVenueLinks = event.custom_venue_links || [];
 
   const handleCopyLink = async () => {
     await navigator.clipboard.writeText(participantUrl);
@@ -167,37 +158,6 @@ export function EventPage() {
     } finally {
       setUnlinkingLine(false);
     }
-  };
-
-  const handleAddVenueLink = async () => {
-    if (!venueLabel.trim() || !venueUrl.trim()) return;
-    setAddingVenueLink(true);
-    try {
-      await api.addCustomVenueLink(event.id, {
-        venue_type: venueType,
-        label: venueLabel.trim(),
-        url: venueUrl.trim(),
-      });
-      setVenueLabel('');
-      setVenueUrl('');
-      await refetch();
-    } finally {
-      setAddingVenueLink(false);
-    }
-  };
-
-  const handleDeleteVenueLink = async (linkId: number) => {
-    if (!confirm('このリンクを削除しますか？')) return;
-    await api.deleteCustomVenueLink(linkId);
-    await refetch();
-  };
-
-  // Tabelog search URL
-  const generateTabelogUrl = () => {
-    const keyword = primaryVenues.length > 0
-      ? primaryVenues[0].restaurant.station_name || primaryVenues[0].restaurant.address
-      : '';
-    return `https://tabelog.com/rstLst/?vs=1&sa=&sk=${encodeURIComponent(keyword)}&lid=&vac_net=&svd=&svt=&svps=&svpe=&hfc=1&Cat=RC&LstCat=RC01&LstCatD=RC01&Cat=RC&LstCat=RC01&LstCatD=RC01&LstCatSD=RC0102&smp=0`;
   };
 
   return (
@@ -476,126 +436,53 @@ export function EventPage() {
         </Card>
       )}
 
-      {/* 店舗予約ページへのリンク */}
+      {/* 店舗予約・検索・場所リンク管理 */}
       <Card className="border-2 border-orange-300">
         <CardContent className="p-4 space-y-2">
           <Button
             className="w-full min-h-[48px] text-base font-bold bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white"
             onClick={() => navigate(`/events/${event.id}/reserve`)}
           >
-            店舗を予約する（ポイント還元あり）
+            店舗検索・予約・場所リンク管理
           </Button>
           <p className="text-xs text-muted-foreground text-center">
-            ホットペッパー予約でPontaポイント/dポイント獲得 + ポイント台帳管理
+            ホットペッパー検索・食べログ・GoogleマップURL登録・ポイント台帳
           </p>
-        </CardContent>
-      </Card>
-
-      {/* お店を探す (HotPepper + Tabelog) */}
-      <RestaurantSearch
-        eventId={event.id}
-        hasAfterParty={!!event.has_after_party}
-        savedVenues={event.venue_selections || []}
-        onVenueChange={refetch}
-      />
-      <Card>
-        <CardContent className="p-4">
-          <a
-            href={generateTabelogUrl()}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm text-primary hover:underline"
-          >
-            食べログでお店を探す →
-          </a>
-          <p className="text-xs text-muted-foreground mt-1">
-            ※食べログは公式APIが限定的なため、外部リンクでの検索となります
-          </p>
-        </CardContent>
-      </Card>
-
-      {/* カスタム場所リンク */}
-      <Card>
-        <CardHeader><CardTitle className="text-lg">場所リンク（GoogleマップURL等）</CardTitle></CardHeader>
-        <CardContent className="space-y-3">
-          <p className="text-sm text-muted-foreground">
-            GoogleマップのURLなど、お店の場所を直接リンクで登録できます
-          </p>
-          {customVenueLinks.length > 0 && (
-            <div className="space-y-2">
-              {customVenueLinks.map((link) => (
-                <div key={link.id} className="flex items-center justify-between rounded-lg border border-border p-2 gap-2">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1">
-                      <Badge variant="secondary" className="text-xs shrink-0">
-                        {link.venue_type === 'primary' ? '一次会' : '二次会'}
-                      </Badge>
-                      <span className="text-sm font-medium truncate">{link.label}</span>
-                    </div>
-                    <a
-                      href={link.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-primary hover:underline break-all"
-                    >
-                      {link.url}
-                    </a>
-                  </div>
-                  <Button variant="outline" size="sm" onClick={() => handleDeleteVenueLink(link.id)}>削除</Button>
-                </div>
-              ))}
-            </div>
-          )}
-          <div className="space-y-2 border-t border-border pt-3">
-            <div className="flex gap-2">
-              <Input
-                placeholder="ラベル（例: 居酒屋〇〇）"
-                value={venueLabel}
-                onChange={(e) => setVenueLabel(e.target.value)}
-                className="flex-1"
-              />
-              <Select
-                value={venueType}
-                onChange={(e) => setVenueType(e.target.value as 'primary' | 'after_party')}
-                className="w-28"
-              >
-                <option value="primary">一次会</option>
-                <option value="after_party">二次会</option>
-              </Select>
-            </div>
-            <div className="flex gap-2">
-              <Input
-                placeholder="URL（GoogleマップのURLなど）"
-                value={venueUrl}
-                onChange={(e) => setVenueUrl(e.target.value)}
-                className="flex-1"
-              />
-              <Button
-                onClick={handleAddVenueLink}
-                disabled={!venueLabel.trim() || !venueUrl.trim() || addingVenueLink}
-                size="sm"
-              >
-                追加
-              </Button>
-            </div>
-          </div>
         </CardContent>
       </Card>
 
       {/* 当日ページへのリンク */}
       <Card>
-        <CardContent className="p-4">
+        <CardContent className="p-4 space-y-2">
           <Button
             className="w-full"
             onClick={() => navigate(`/events/${event.id}/day`)}
           >
             当日ページを開く（出欠確認・精算）
           </Button>
-          <p className="text-xs text-muted-foreground mt-2 text-center">
+          <p className="text-xs text-muted-foreground text-center">
             当日の出欠確認、精算設定、精算テキスト生成はこちら
           </p>
         </CardContent>
       </Card>
+
+      {/* ダッシュボード・参加者ビュー */}
+      <div className="grid grid-cols-2 gap-3">
+        <Button
+          variant="outline"
+          className="min-h-[48px]"
+          onClick={() => navigate(`/events/${event.id}/dashboard`)}
+        >
+          幹事ダッシュボード
+        </Button>
+        <Button
+          variant="outline"
+          className="min-h-[48px]"
+          onClick={() => navigate(`/events/${event.id}/my`)}
+        >
+          参加者ビュー確認
+        </Button>
+      </div>
     </div>
   );
 }

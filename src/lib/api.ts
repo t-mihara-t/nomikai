@@ -284,6 +284,11 @@ export const api = {
     return fetchJson(`${API_BASE}/cron/notify`, { method: 'POST' });
   },
 
+  // Trigger recovery actions (last train reminder + convenience store suggestion)
+  checkRecoveryActions(): Promise<{ checked: number; sent_reminders: number; sent_recovery: number }> {
+    return fetchJson(`${API_BASE}/cron/recovery`, { method: 'POST' });
+  },
+
   // Recruit Points
   getPoints(eventId: number): Promise<PointsSummary> {
     return fetchJson(`${API_BASE}/events/${eventId}/points`);

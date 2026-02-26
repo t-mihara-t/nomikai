@@ -1,70 +1,21 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useEventDetail } from '@/hooks/useEventData';
 import { api } from '@/lib/api';
-import type { Restaurant, PointsSummary } from '@/types';
+import type { PointsSummary, CustomVenueLink } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-
-const BUDGET_OPTIONS = [
-  { value: '', label: '指定なし' },
-  { value: 'B001', label: '～500円' },
-  { value: 'B002', label: '501～1000円' },
-  { value: 'B003', label: '1001～1500円' },
-  { value: 'B004', label: '1501～2000円' },
-  { value: 'B005', label: '2001～3000円' },
-  { value: 'B006', label: '3001～4000円' },
-  { value: 'B007', label: '4001～5000円' },
-  { value: 'B008', label: '5001～7000円' },
-  { value: 'B009', label: '7001～10000円' },
-  { value: 'B010', label: '10001～15000円' },
-  { value: 'B011', label: '15001～20000円' },
-];
-
-const RANGE_OPTIONS = [
-  { value: '', label: '指定なし' },
-  { value: '1', label: '300m以内' },
-  { value: '2', label: '500m以内' },
-  { value: '3', label: '1000m以内' },
-  { value: '4', label: '2000m以内' },
-  { value: '5', label: '3000m以内' },
-];
-
-function buildAffiliateUrl(shopUrl: string): string {
-  // Append affiliate tracking if URL is from hotpepper
-  if (!shopUrl) return shopUrl;
-  try {
-    const u = new URL(shopUrl);
-    u.searchParams.set('vos', 'nomilive');
-    return u.toString();
-  } catch {
-    return shopUrl;
-  }
-}
+import { RestaurantSearch } from '@/components/RestaurantSearch';
 
 export function ReservePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const eventId = id ? parseInt(id, 10) : null;
   const { event, loading: eventLoading, error: eventError, refetch } = useEventDetail(eventId);
-
-  // Search state - initialize from URL params
-  const [keyword, setKeyword] = useState(searchParams.get('keyword') || '');
-  const [budget, setBudget] = useState(searchParams.get('budget') || '');
-  const [range, setRange] = useState(searchParams.get('range') || '');
-  const [partySize, setPartySize] = useState(searchParams.get('party_size') || '');
-  const [freeDrink, setFreeDrink] = useState(false);
-  const [cardPayment, setCardPayment] = useState(false);
-  const [results, setResults] = useState<Restaurant[]>([]);
-  const [total, setTotal] = useState<number | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState<string | null>(null);
 
   // Points state
   const [points, setPoints] = useState<PointsSummary | null>(null);
@@ -73,9 +24,11 @@ export function ReservePage() {
   const [contributeAmount, setContributeAmount] = useState('');
   const [pointsLoading, setPointsLoading] = useState(false);
 
-  // Login prompt
-  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
-  const [loginPromptUrl, setLoginPromptUrl] = useState('');
+  // Custom venue links
+  const [venueLabel, setVenueLabel] = useState('');
+  const [venueUrl, setVenueUrl] = useState('');
+  const [venueType, setVenueType] = useState<'primary' | 'after_party'>('primary');
+  const [addingVenueLink, setAddingVenueLink] = useState(false);
 
   useEffect(() => {
     if (eventId) {
@@ -92,87 +45,6 @@ export function ReservePage() {
 
   const attending = event.participants.filter((p) => p.status === 'attending');
   const primaryVenues = (event.venue_selections || []).filter((v) => v.venue_type === 'primary');
-
-  const handleSearch = async () => {
-    if (!keyword.trim()) return;
-    setLoading(true);
-    setError(null);
-    setResults([]);
-    setTotal(null);
-
-    try {
-      const baseParams: Parameters<typeof api.searchRestaurants>[0] = {
-        keyword: keyword.trim(),
-        count: 10,
-        budget: budget || undefined,
-        free_drink: freeDrink || undefined,
-        card: cardPayment || undefined,
-      };
-
-      const initialData = await api.searchRestaurants(baseParams);
-
-      if (range && initialData.shops.length > 0) {
-        const firstShop = initialData.shops[0];
-        if (firstShop.lat && firstShop.lng) {
-          try {
-            const geoData = await api.searchRestaurants({
-              ...baseParams,
-              lat: firstShop.lat,
-              lng: firstShop.lng,
-              range,
-            });
-            let filteredShops = geoData.shops;
-            if (partySize) {
-              const minCapacity = parseInt(partySize, 10);
-              filteredShops = filteredShops.filter((s) => !s.party_capacity || s.party_capacity >= minCapacity);
-            }
-            setResults(filteredShops);
-            setTotal(geoData.total);
-            return;
-          } catch { /* fall through */ }
-        }
-      }
-
-      let shops = initialData.shops;
-      if (partySize) {
-        const minCapacity = parseInt(partySize, 10);
-        shops = shops.filter((s) => !s.party_capacity || s.party_capacity >= minCapacity);
-      }
-      setResults(shops);
-      setTotal(initialData.total);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '検索に失敗しました');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleReserve = (shop: Restaurant) => {
-    const url = buildAffiliateUrl(shop.url);
-    setLoginPromptUrl(url);
-    setShowLoginPrompt(true);
-  };
-
-  const handleConfirmReserve = () => {
-    window.open(loginPromptUrl, '_blank');
-    setShowLoginPrompt(false);
-  };
-
-  const handleSavePrimary = async (shop: Restaurant) => {
-    if (primaryVenues.length >= 2) {
-      setError('一次会候補は最大2件までです。');
-      return;
-    }
-    setSaving(shop.id);
-    try {
-      await api.addVenue(event.id, { venue_type: 'primary', restaurant: shop });
-      await refetch();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '保存に失敗しました');
-    } finally {
-      setSaving(null);
-    }
-  };
 
   const handleEarnPoints = async () => {
     const amount = parseInt(earnAmount, 10);
@@ -208,6 +80,38 @@ export function ReservePage() {
       await refetch(); // kampa_amount updated
     } catch { /* */ }
     setPointsLoading(false);
+  };
+
+  const customVenueLinks: CustomVenueLink[] = event.custom_venue_links || [];
+
+  const handleAddVenueLink = async () => {
+    if (!venueLabel.trim() || !venueUrl.trim()) return;
+    setAddingVenueLink(true);
+    try {
+      await api.addCustomVenueLink(event.id, {
+        venue_type: venueType,
+        label: venueLabel.trim(),
+        url: venueUrl.trim(),
+      });
+      setVenueLabel('');
+      setVenueUrl('');
+      await refetch();
+    } finally {
+      setAddingVenueLink(false);
+    }
+  };
+
+  const handleDeleteVenueLink = async (linkId: number) => {
+    if (!confirm('このリンクを削除しますか？')) return;
+    await api.deleteCustomVenueLink(linkId);
+    await refetch();
+  };
+
+  const generateTabelogUrl = () => {
+    const keyword = primaryVenues.length > 0
+      ? primaryVenues[0].restaurant.station_name || primaryVenues[0].restaurant.address
+      : '';
+    return `https://tabelog.com/rstLst/?vs=1&sa=&sk=${encodeURIComponent(keyword)}&lid=&vac_net=&svd=&svt=&svps=&svpe=&hfc=1&Cat=RC&LstCat=RC01&LstCatD=RC01&Cat=RC&LstCat=RC01&LstCatD=RC01&LstCatSD=RC0102&smp=0`;
   };
 
   const estimatedPoints = attending.length * 50;
@@ -321,157 +225,99 @@ export function ReservePage() {
         </CardContent>
       </Card>
 
-      {/* Search Form */}
+      {/* Restaurant Search (consolidated from EventPage) */}
+      <RestaurantSearch
+        eventId={event.id}
+        hasAfterParty={!!event.has_after_party}
+        savedVenues={event.venue_selections || []}
+        onVenueChange={refetch}
+      />
+
+      {/* Tabelog link */}
       <Card>
-        <CardHeader><CardTitle className="text-lg">お店を探す</CardTitle></CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label>最寄駅・エリア名</Label>
-            <div className="flex gap-2">
-              <Input
-                placeholder="例: 渋谷駅 居酒屋"
-                value={keyword}
-                onChange={(e) => setKeyword(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSearch(); } }}
-                className="flex-1"
-              />
-              <Button onClick={handleSearch} disabled={loading || !keyword.trim()}>
-                {loading ? '検索中...' : '検索'}
-              </Button>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <div className="space-y-1">
-              <Label className="text-xs">距離</Label>
-              <Select value={range} onChange={(e) => setRange(e.target.value)}>
-                {RANGE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">予算</Label>
-              <Select value={budget} onChange={(e) => setBudget(e.target.value)}>
-                {BUDGET_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">人数</Label>
-              <Input type="number" placeholder="例: 10" value={partySize} onChange={(e) => setPartySize(e.target.value)} min="1" />
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-3">
-            <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <input type="checkbox" checked={freeDrink} onChange={(e) => setFreeDrink(e.target.checked)} className="rounded" />
-              飲み放題あり
-            </label>
-            <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <input type="checkbox" checked={cardPayment} onChange={(e) => setCardPayment(e.target.checked)} className="rounded" />
-              カード/電子決済可
-            </label>
-          </div>
-
-          {error && <p className="text-sm text-destructive">{error}</p>}
-
-          {total !== null && (
-            <p className="text-sm text-muted-foreground">
-              {total}件中 {results.length}件を表示
-            </p>
-          )}
-
-          {results.length > 0 && (
-            <div className="space-y-3">
-              {results.map((shop) => {
-                const alreadySaved = primaryVenues.some((v) => v.restaurant.id === shop.id);
-                const affiliateUrl = buildAffiliateUrl(shop.url);
-                return (
-                  <div key={shop.id} className="rounded-lg border border-border p-3 space-y-2">
-                    <div className="flex gap-3">
-                      {shop.photo_url && (
-                        <img src={shop.photo_url} alt={shop.name} className="h-20 w-20 rounded-md object-cover flex-shrink-0" />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-semibold text-sm truncate">{shop.name}</h4>
-                        {shop.catch && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{shop.catch}</p>}
-                        <div className="mt-1 flex flex-wrap gap-1">
-                          {shop.genre && <Badge variant="outline" className="text-xs">{shop.genre}</Badge>}
-                          {shop.budget_name && <Badge variant="secondary" className="text-xs">{shop.budget_name}</Badge>}
-                          {shop.station_name && <Badge variant="outline" className="text-xs">{shop.station_name}</Badge>}
-                          {shop.free_drink === 'あり' && <Badge variant="default" className="text-xs">飲み放題</Badge>}
-                          {shop.course === 'あり' && <Badge variant="secondary" className="text-xs">コース</Badge>}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-xs text-muted-foreground space-y-0.5">
-                      {shop.address && <p>{shop.address}</p>}
-                      {shop.capacity > 0 && <span>席数: {shop.capacity} </span>}
-                      {shop.party_capacity > 0 && <span>宴会: 最大{shop.party_capacity}名</span>}
-                    </div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Button
-                        size="sm"
-                        className="bg-orange-500 hover:bg-orange-600 text-white text-xs"
-                        onClick={() => handleReserve(shop)}
-                      >
-                        ホットペッパーで予約
-                      </Button>
-                      {affiliateUrl && (
-                        <a href={affiliateUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">
-                          詳細を見る
-                        </a>
-                      )}
-                      {shop.lat && shop.lng && (
-                        <a
-                          href={`https://www.google.com/maps/search/?api=1&query=${shop.lat},${shop.lng}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs text-primary hover:underline"
-                        >
-                          地図
-                        </a>
-                      )}
-                      <div className="ml-auto">
-                        {alreadySaved ? (
-                          <Badge variant="secondary" className="text-xs">選択済み</Badge>
-                        ) : primaryVenues.length < 2 && (
-                          <Button variant="outline" size="sm" className="text-xs" disabled={saving === shop.id} onClick={() => handleSavePrimary(shop)}>
-                            {saving === shop.id ? '保存中...' : '候補に追加'}
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+        <CardContent className="p-4">
+          <a
+            href={generateTabelogUrl()}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-primary hover:underline"
+          >
+            食べログでお店を探す →
+          </a>
+          <p className="text-xs text-muted-foreground mt-1">
+            ※食べログは公式APIが限定的なため、外部リンクでの検索となります
+          </p>
         </CardContent>
       </Card>
 
-      {/* Login prompt modal */}
-      {showLoginPrompt && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowLoginPrompt(false)}>
-          <Card className="max-w-md w-full" onClick={(e) => e.stopPropagation()}>
-            <CardContent className="p-6 space-y-4 text-center">
-              <p className="text-lg font-bold">ポイント獲得のご案内</p>
-              <div className="rounded-lg bg-orange-50 border border-orange-200 p-4 text-sm text-left space-y-2">
-                <p className="font-medium text-orange-700">リクルートIDでログインしてから予約するとポイント最大化!</p>
-                <ul className="text-xs text-muted-foreground space-y-1 list-disc pl-4">
-                  <li>Pontaポイント/dポイントが貯まります</li>
-                  <li>来店人数 × 50ポイント以上を獲得</li>
-                  <li>キャンペーン期間中はさらにポイントアップ</li>
-                </ul>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" className="flex-1" onClick={() => setShowLoginPrompt(false)}>戻る</Button>
-                <Button className="flex-1 bg-orange-500 hover:bg-orange-600 text-white" onClick={handleConfirmReserve}>
-                  予約ページを開く
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      {/* カスタム場所リンク */}
+      <Card>
+        <CardHeader><CardTitle className="text-lg">場所リンク（GoogleマップURL等）</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            GoogleマップのURLなど、お店の場所を直接リンクで登録できます
+          </p>
+          {customVenueLinks.length > 0 && (
+            <div className="space-y-2">
+              {customVenueLinks.map((link) => (
+                <div key={link.id} className="flex items-center justify-between rounded-lg border border-border p-2 gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1">
+                      <Badge variant="secondary" className="text-xs shrink-0">
+                        {link.venue_type === 'primary' ? '一次会' : '二次会'}
+                      </Badge>
+                      <span className="text-sm font-medium truncate">{link.label}</span>
+                    </div>
+                    <a
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-primary hover:underline break-all"
+                    >
+                      {link.url}
+                    </a>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={() => handleDeleteVenueLink(link.id)}>削除</Button>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="space-y-2 border-t border-border pt-3">
+            <div className="flex gap-2">
+              <Input
+                placeholder="ラベル（例: 居酒屋〇〇）"
+                value={venueLabel}
+                onChange={(e) => setVenueLabel(e.target.value)}
+                className="flex-1"
+              />
+              <Select
+                value={venueType}
+                onChange={(e) => setVenueType(e.target.value as 'primary' | 'after_party')}
+                className="w-28"
+              >
+                <option value="primary">一次会</option>
+                <option value="after_party">二次会</option>
+              </Select>
+            </div>
+            <div className="flex gap-2">
+              <Input
+                placeholder="URL（GoogleマップのURLなど）"
+                value={venueUrl}
+                onChange={(e) => setVenueUrl(e.target.value)}
+                className="flex-1"
+              />
+              <Button
+                onClick={handleAddVenueLink}
+                disabled={!venueLabel.trim() || !venueUrl.trim() || addingVenueLink}
+                size="sm"
+              >
+                追加
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
     </div>
   );
 }

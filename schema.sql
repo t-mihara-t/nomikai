@@ -124,3 +124,36 @@ CREATE TABLE IF NOT EXISTS recruit_points (
 );
 
 CREATE INDEX IF NOT EXISTS idx_recruit_points_event_id ON recruit_points(event_id);
+
+-- Users table: unified user management by LINE user ID
+CREATE TABLE IF NOT EXISTS users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  line_user_id TEXT UNIQUE,
+  display_name TEXT NOT NULL DEFAULT '',
+  nearest_station TEXT,
+  role TEXT NOT NULL DEFAULT 'participant' CHECK (role IN ('organizer', 'participant')),
+  total_points_earned INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_line_user_id ON users(line_user_id);
+
+-- Transactions table: payment history, rounding fee log, affiliate log
+CREATE TABLE IF NOT EXISTS transactions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  event_id INTEGER NOT NULL,
+  participant_id INTEGER,
+  user_id INTEGER,
+  type TEXT NOT NULL CHECK (type IN ('payment', 'rounding_fee', 'affiliate', 'refund', 'points_earned', 'points_used')),
+  amount INTEGER NOT NULL,
+  description TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
+  FOREIGN KEY (participant_id) REFERENCES participants(id) ON DELETE SET NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_transactions_event_id ON transactions(event_id);
+CREATE INDEX IF NOT EXISTS idx_transactions_user_id ON transactions(user_id);
+CREATE INDEX IF NOT EXISTS idx_transactions_type ON transactions(type);

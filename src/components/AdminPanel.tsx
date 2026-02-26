@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,7 +7,8 @@ import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { calculateSplit } from '@/lib/calculate';
-import type { Participant, CalculateResult, ParticipantBreakdown } from '@/types';
+import { api } from '@/lib/api';
+import type { Participant, CalculateResult, ParticipantBreakdown, PointsSummary } from '@/types';
 
 interface AdminPanelProps {
   eventId: number;
@@ -26,6 +27,7 @@ interface AdminPanelProps {
 }
 
 export function AdminPanel({
+  eventId,
   participants,
   currentTotalAmount,
   currentDrinkerRatio,
@@ -42,19 +44,34 @@ export function AdminPanel({
   const [preview, setPreview] = useState<CalculateResult | null>(null);
   const [confirmed, setConfirmed] = useState<CalculateResult | null>(null);
 
+  // Points usage
+  const [usePoints, setUsePoints] = useState(false);
+  const [pointsAmount, setPointsAmount] = useState('0');
+  const [points, setPoints] = useState<PointsSummary | null>(null);
+
+  useEffect(() => {
+    api.getPoints(eventId).then(setPoints).catch(() => {});
+  }, [eventId]);
+
   const attending = participants.filter((p) => p.status === 'attending');
 
   const handlePreview = () => {
     setError(null);
     const amount = parseInt(totalAmount, 10);
     const kampa = parseInt(kampaAmount, 10) || 0;
+    const pointsUsed = usePoints ? (parseInt(pointsAmount, 10) || 0) : 0;
 
     if (!totalAmount || isNaN(amount) || amount <= 0) {
       setError('正しい合計金額を入力してください');
       return;
     }
-    if (kampa >= amount) {
-      setError('繰越金等が合計金額以上です');
+    if (pointsUsed > 0 && points && pointsUsed > points.available_balance) {
+      setError('ポイント利用額が拠出可能残高を超えています');
+      return;
+    }
+    const effectiveTotal = amount - pointsUsed;
+    if (kampa >= effectiveTotal) {
+      setError('繰越金等+ポイント利用額が合計金額以上です');
       return;
     }
     if (attending.length === 0) {
@@ -66,18 +83,37 @@ export function AdminPanel({
     const effectiveAttending = applyDiscount
       ? attending
       : attending.map((p) => ({ ...p, discount_rate: p.discount_rate >= 1.0 ? p.discount_rate : 0 }));
-    const result = calculateSplit(amount, effectiveAttending, drinkerRatio, kampa, rounding);
-    setPreview(result);
+    const result = calculateSplit(effectiveTotal, effectiveAttending, drinkerRatio, kampa, rounding);
+    setPreview({ ...result, points_used: pointsUsed } as CalculateResult);
     setConfirmed(null);
   };
 
   const handleConfirm = async () => {
     const amount = parseInt(totalAmount, 10);
     const kampa = parseInt(kampaAmount, 10) || 0;
+    const pointsUsed = usePoints ? (parseInt(pointsAmount, 10) || 0) : 0;
     if (!amount) return;
 
+    // Deduct points from points DB if using points
+    if (pointsUsed > 0) {
+      try {
+        await api.addPoints(eventId, {
+          type: 'contributed',
+          amount: pointsUsed,
+          description: '精算時ポイント利用',
+        });
+        // Refresh points balance
+        const updated = await api.getPoints(eventId);
+        setPoints(updated);
+      } catch {
+        setError('ポイント引き去りに失敗しました');
+        return;
+      }
+    }
+
+    const effectiveTotal = amount - pointsUsed;
     const result = await onCalculate({
-      total_amount: amount,
+      total_amount: effectiveTotal,
       drinker_ratio: drinkerRatio,
       kampa_amount: kampa,
       rounding,
@@ -85,7 +121,7 @@ export function AdminPanel({
     });
 
     if (result) {
-      setConfirmed(result);
+      setConfirmed({ ...result, points_used: pointsUsed } as CalculateResult);
       setPreview(null);
     }
   };
@@ -119,6 +155,36 @@ export function AdminPanel({
             <div className="space-y-2">
               <Label htmlFor="kampa-amount">繰越金等 (円)</Label>
               <Input id="kampa-amount" type="number" placeholder="0" value={kampaAmount} onChange={(e) => setKampaAmount(e.target.value)} />
+            </div>
+          </div>
+
+          {/* Points usage - parallel to 繰越金等 */}
+          <div className="flex items-center justify-between rounded-lg border border-border p-3">
+            <div className="flex-1">
+              <p className="text-sm font-medium">ポイント利用</p>
+              <p className="text-xs text-muted-foreground">
+                残高: {points?.available_balance || 0}pt
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              {usePoints && (
+                <Input
+                  type="number"
+                  placeholder="0"
+                  value={pointsAmount}
+                  onChange={(e) => setPointsAmount(e.target.value)}
+                  className="w-24 text-right"
+                  min="0"
+                  max={points?.available_balance || 0}
+                />
+              )}
+              <Button
+                variant={usePoints ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => { setUsePoints(!usePoints); if (usePoints) setPointsAmount('0'); }}
+              >
+                {usePoints ? 'ON' : 'OFF'}
+              </Button>
             </div>
           </div>
 
@@ -187,13 +253,19 @@ function BreakdownCard({ result, totalAmount, label, labelColor }: { result: Cal
               <p className="text-muted-foreground">徴収合計</p>
               <p className="text-xl font-bold">{result.total_collected.toLocaleString()}円</p>
             </div>
+            {(result.points_used ?? 0) > 0 && (
+              <div>
+                <p className="text-muted-foreground">ポイント利用</p>
+                <p className="text-lg font-semibold text-purple-600">-{(result.points_used ?? 0).toLocaleString()}pt</p>
+              </div>
+            )}
             {result.kampa_amount > 0 && (
               <div>
                 <p className="text-muted-foreground">繰越金等</p>
                 <p className="text-lg font-semibold text-green-600">-{result.kampa_amount.toLocaleString()}円</p>
               </div>
             )}
-            {result.kampa_amount > 0 && (
+            {(result.kampa_amount > 0 || (result.points_used ?? 0) > 0) && (
               <div>
                 <p className="text-muted-foreground">割り勘対象額</p>
                 <p className="text-lg font-semibold">{result.adjusted_total.toLocaleString()}円</p>
