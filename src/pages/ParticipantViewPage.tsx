@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useEventDetail } from '@/hooks/useEventData';
-import { useEnvironment } from '@/hooks/useEnvironment';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -16,7 +15,6 @@ export function ParticipantViewPage() {
   const { id } = useParams<{ id: string }>();
   const eventId = id ? parseInt(id, 10) : null;
   const { event, loading, error } = useEventDetail(eventId);
-  const { profile } = useEnvironment();
   const [selectedParticipantId, setSelectedParticipantId] = useState<number | null>(null);
 
   // Try to auto-identify participant by LINE user ID or stored selection
@@ -60,14 +58,6 @@ export function ParticipantViewPage() {
         <div className="text-center space-y-2">
           <h1 className="text-2xl font-bold">{event.name}</h1>
           <p className="text-sm text-muted-foreground">{event.date}</p>
-          {profile && (
-            <div className="flex items-center justify-center gap-2 text-sm">
-              {profile.pictureUrl && (
-                <img src={profile.pictureUrl} alt="" className="h-6 w-6 rounded-full" />
-              )}
-              <span>{profile.displayName}さん</span>
-            </div>
-          )}
         </div>
 
         <Card>

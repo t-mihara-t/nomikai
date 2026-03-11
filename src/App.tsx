@@ -8,12 +8,11 @@ import { LineCallbackPage } from '@/pages/LineCallbackPage';
 import { ReservePage } from '@/pages/ReservePage';
 import { ParticipantViewPage } from '@/pages/ParticipantViewPage';
 import { DashboardPage } from '@/pages/DashboardPage';
-import { AppLayout } from '@/components/AppLayout';
 
 export default function App() {
   return (
     <BrowserRouter>
-      <AppLayout>
+      <div className="min-h-screen bg-background pb-12">
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/events/:id" element={<EventPage />} />
@@ -25,7 +24,7 @@ export default function App() {
           <Route path="/join/:id" element={<JoinPage />} />
           <Route path="/line-callback" element={<LineCallbackPage />} />
         </Routes>
-      </AppLayout>
+      </div>
     </BrowserRouter>
   );
 }
