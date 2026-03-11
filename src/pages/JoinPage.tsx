@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useEventDetail } from '@/hooks/useEventData';
 import { api } from '@/lib/api';
 import type { Restaurant, Participant, ParticipantResponse } from '@/types';
@@ -77,7 +77,6 @@ function StatusButton({ label, active, onClick }: { label: string; active: boole
 
 export function JoinPage() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const eventId = id ? parseInt(id, 10) : null;
   const { event, loading, error, refetch } = useEventDetail(eventId);
 
@@ -317,12 +316,13 @@ export function JoinPage() {
           <p className="text-xs text-muted-foreground text-center">
             このページのQRコード（会場の地図確認にも使えます）
           </p>
-          <Button
-            className="w-full min-h-[48px] text-base font-bold bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white"
-            onClick={() => navigate(`/events/${event.id}/arrive`)}
-          >
-            遅れそうな方はこちら（到着連絡・注文）
-          </Button>
+          <a href={`/events/${event.id}/arrive`} className="block">
+            <Button
+              className="w-full min-h-[48px] text-base font-bold bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white"
+            >
+              遅れそうな方はこちら（到着連絡・注文）
+            </Button>
+          </a>
         </CardContent>
       </Card>
 

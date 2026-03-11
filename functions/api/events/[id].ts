@@ -13,10 +13,25 @@ async function ensureParticipantColumns(db: D1Database): Promise<void> {
   }
 }
 
+async function ensureEventColumns(db: D1Database): Promise<void> {
+  const stmts = [
+    'ALTER TABLE events ADD COLUMN has_after_party INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE events ADD COLUMN kampa_amount INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE events ADD COLUMN parent_event_id INTEGER REFERENCES events(id) ON DELETE SET NULL',
+    'ALTER TABLE events ADD COLUMN auto_delete_at TEXT',
+    'ALTER TABLE events ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1',
+    'ALTER TABLE events ADD COLUMN line_user_id TEXT',
+  ];
+  for (const sql of stmts) {
+    try { await db.prepare(sql).run(); } catch { /* column already exists */ }
+  }
+}
+
 export const onRequestGet: PagesFunction<Env> = async ({ params, env }) => {
   const id = params.id;
 
-  // Ensure participant columns exist before querying
+  // Ensure columns exist before querying
+  await ensureEventColumns(env.DB);
   await ensureParticipantColumns(env.DB);
 
   const event = await env.DB.prepare('SELECT * FROM events WHERE id = ?')
@@ -149,6 +164,9 @@ export const onRequestGet: PagesFunction<Env> = async ({ params, env }) => {
 };
 
 export const onRequestPut: PagesFunction<Env> = async ({ params, request, env }) => {
+  // Ensure event columns exist before updating
+  await ensureEventColumns(env.DB);
+
   const id = params.id;
   const body = await request.json<{
     name?: string;
