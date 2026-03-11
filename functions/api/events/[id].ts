@@ -13,10 +13,25 @@ async function ensureParticipantColumns(db: D1Database): Promise<void> {
   }
 }
 
+async function ensureEventColumns(db: D1Database): Promise<void> {
+  const stmts = [
+    'ALTER TABLE events ADD COLUMN has_after_party INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE events ADD COLUMN kampa_amount INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE events ADD COLUMN parent_event_id INTEGER REFERENCES events(id) ON DELETE SET NULL',
+    'ALTER TABLE events ADD COLUMN auto_delete_at TEXT',
+    'ALTER TABLE events ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1',
+    'ALTER TABLE events ADD COLUMN line_user_id TEXT',
+  ];
+  for (const sql of stmts) {
+    try { await db.prepare(sql).run(); } catch { /* column already exists */ }
+  }
+}
+
 export const onRequestGet: PagesFunction<Env> = async ({ params, env }) => {
   const id = params.id;
 
-  // Ensure participant columns exist before querying
+  // Ensure columns exist before querying
+  await ensureEventColumns(env.DB);
   await ensureParticipantColumns(env.DB);
 
   const event = await env.DB.prepare('SELECT * FROM events WHERE id = ?')
@@ -149,6 +164,9 @@ export const onRequestGet: PagesFunction<Env> = async ({ params, env }) => {
 };
 
 export const onRequestPut: PagesFunction<Env> = async ({ params, request, env }) => {
+  // Ensure event columns exist before updating
+  await ensureEventColumns(env.DB);
+
   const id = params.id;
   const body = await request.json<{
     name?: string;
@@ -170,50 +188,28 @@ export const onRequestPut: PagesFunction<Env> = async ({ params, request, env })
     return Response.json({ error: 'Event not found' }, { status: 404 });
   }
 
-  let result: Record<string, unknown> | null = null;
-  try {
-    result = await env.DB.prepare(
-      `UPDATE events SET
-        name = COALESCE(?, name),
-        date = COALESCE(?, date),
-        total_amount = COALESCE(?, total_amount),
-        drinker_ratio = COALESCE(?, drinker_ratio),
-        has_after_party = COALESCE(?, has_after_party),
-        paypay_id = COALESCE(?, paypay_id),
-        kampa_amount = COALESCE(?, kampa_amount)
-      WHERE id = ? RETURNING *`
+  const result = await env.DB.prepare(
+    `UPDATE events SET
+      name = COALESCE(?, name),
+      date = COALESCE(?, date),
+      total_amount = COALESCE(?, total_amount),
+      drinker_ratio = COALESCE(?, drinker_ratio),
+      has_after_party = COALESCE(?, has_after_party),
+      paypay_id = COALESCE(?, paypay_id),
+      kampa_amount = COALESCE(?, kampa_amount)
+    WHERE id = ? RETURNING *`
+  )
+    .bind(
+      body.name || null,
+      body.date || null,
+      body.total_amount ?? null,
+      body.drinker_ratio ?? null,
+      body.has_after_party !== undefined ? (body.has_after_party ? 1 : 0) : null,
+      body.paypay_id ?? null,
+      body.kampa_amount ?? null,
+      id
     )
-      .bind(
-        body.name || null,
-        body.date || null,
-        body.total_amount ?? null,
-        body.drinker_ratio ?? null,
-        body.has_after_party !== undefined ? (body.has_after_party ? 1 : 0) : null,
-        body.paypay_id ?? null,
-        body.kampa_amount ?? null,
-        id
-      )
-      .first();
-  } catch {
-    result = await env.DB.prepare(
-      `UPDATE events SET
-        name = COALESCE(?, name),
-        date = COALESCE(?, date),
-        total_amount = COALESCE(?, total_amount),
-        drinker_ratio = COALESCE(?, drinker_ratio),
-        paypay_id = COALESCE(?, paypay_id)
-      WHERE id = ? RETURNING *`
-    )
-      .bind(
-        body.name || null,
-        body.date || null,
-        body.total_amount ?? null,
-        body.drinker_ratio ?? null,
-        body.paypay_id ?? null,
-        id
-      )
-      .first();
-  }
+    .first();
 
   return Response.json(result);
 };

@@ -25,13 +25,16 @@ export const api = {
 
   async getEvent(id: number): Promise<EventWithParticipants> {
     const data = await fetchJson<EventWithParticipants>(`${API_BASE}/events/${id}`);
+    // Normalize event fields (D1 stores booleans as 0/1)
+    data.has_after_party = !!data.has_after_party;
+    data.is_active = data.is_active !== undefined ? !!data.is_active : true;
     // Normalize participant fields that may be missing from older DB schemas
     if (data.participants) {
       data.participants = data.participants.map(p => ({
         ...p,
         multiplier: p.multiplier ?? 1.0,
         discount_rate: p.discount_rate ?? 0,
-        join_after_party: p.join_after_party ?? false,
+        join_after_party: !!p.join_after_party,
       }));
     }
     if (data.after_party_event?.participants) {
@@ -39,7 +42,7 @@ export const api = {
         ...p,
         multiplier: p.multiplier ?? 1.0,
         discount_rate: p.discount_rate ?? 0,
-        join_after_party: p.join_after_party ?? false,
+        join_after_party: !!p.join_after_party,
       }));
     }
     return data;
