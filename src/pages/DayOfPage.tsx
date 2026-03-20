@@ -4,7 +4,6 @@ import { useEventDetail, useCalculate } from '@/hooks/useEventData';
 import { api } from '@/lib/api';
 import { ParticipantList } from '@/components/ParticipantList';
 import { AdminPanel } from '@/components/AdminPanel';
-import { HeroicEntry } from '@/components/HeroicEntry';
 import { DrinkOrderList } from '@/components/DrinkOrderPanel';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -54,6 +53,9 @@ function VenueCard({ shop, label }: { shop: Restaurant; label?: string }) {
 }
 
 function ArrivalCountdown({ createdAt, etaMinutes }: { createdAt: string; etaMinutes: number }) {
+  const arrivalTime = new Date(new Date(createdAt).getTime() + etaMinutes * 60 * 1000);
+  const arrivalTimeStr = arrivalTime.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+
   const [remaining, setRemaining] = useState<number>(() => {
     const elapsed = (Date.now() - new Date(createdAt).getTime()) / 1000;
     return Math.max(0, etaMinutes * 60 - elapsed);
@@ -71,15 +73,22 @@ function ArrivalCountdown({ createdAt, etaMinutes }: { createdAt: string; etaMin
   }, [createdAt, etaMinutes, remaining]);
 
   if (remaining <= 0) {
-    return <p className="text-sm text-green-700 font-bold">到着予定時刻</p>;
+    return (
+      <p className="text-sm text-green-700 font-bold">
+        {arrivalTimeStr} 到着予定
+      </p>
+    );
   }
 
   const mins = Math.floor(remaining / 60);
   const secs = Math.floor(remaining % 60);
   return (
-    <p className="text-sm text-amber-700 font-mono">
-      あと <span className="text-lg font-bold">{mins}:{secs.toString().padStart(2, '0')}</span> で到着
-    </p>
+    <div className="space-y-0.5">
+      <p className="text-sm text-amber-700 font-mono">
+        あと <span className="text-lg font-bold">{mins}:{secs.toString().padStart(2, '0')}</span> で到着
+      </p>
+      <p className="text-xs text-muted-foreground">{arrivalTimeStr} 到着予定</p>
+    </div>
   );
 }
 
@@ -97,26 +106,15 @@ export function DayOfPage() {
   const [autoRefresh, setAutoRefresh] = useState(true);
 
   // Arrival notification state
-  const [heroicArrival, setHeroicArrival] = useState<Arrival | null>(null);
-  const [previousArrivalIds, setPreviousArrivalIds] = useState<Set<number>>(new Set());
   const [arrivalLinkCopied, setArrivalLinkCopied] = useState(false);
   const [drinkReminders, setDrinkReminders] = useState<Set<number>>(new Set());
 
-  // Poll for new arrivals & drink orders every 10 seconds
-  const checkForNewArrivals = useCallback(async () => {
+  // Poll for arrivals & drink orders every 10 seconds
+  const checkForDrinkReminders = useCallback(async () => {
     if (!eventId) return;
     try {
       const arrivals = await api.getArrivals(eventId);
       const activeArrivals = arrivals.filter(a => a.status === 'approaching' || a.status === 'arrived');
-
-      // Check for new arrivals not yet seen
-      for (const arrival of activeArrivals) {
-        if (!previousArrivalIds.has(arrival.id)) {
-          setHeroicArrival(arrival);
-          setPreviousArrivalIds(prev => new Set([...prev, arrival.id]));
-          break;
-        }
-      }
 
       // Auto drink reminder: for 30+ min arrivals, remind 5 min before ETA
       for (const arrival of activeArrivals) {
@@ -138,20 +136,12 @@ export function DayOfPage() {
     } catch {
       // Polling error - ignore silently
     }
-  }, [eventId, previousArrivalIds, drinkReminders]);
-
-  useEffect(() => {
-    // Initialize known arrivals from event data
-    if (event?.arrivals) {
-      const ids = new Set(event.arrivals.map(a => a.id));
-      setPreviousArrivalIds(ids);
-    }
-  }, [event?.arrivals]);
+  }, [eventId, drinkReminders]);
 
   useEffect(() => {
     if (!autoRefresh) return;
     const interval = setInterval(() => {
-      checkForNewArrivals();
+      checkForDrinkReminders();
       refetch(); // Also refresh event data (drink orders, etc.)
       // Trigger LINE reminder check (server-side sends 5-min-before notifications)
       api.checkLineReminders().catch(() => {});
@@ -159,7 +149,7 @@ export function DayOfPage() {
       api.checkRecoveryActions().catch(() => {});
     }, 10000);
     return () => clearInterval(interval);
-  }, [checkForNewArrivals, refetch, autoRefresh]);
+  }, [checkForDrinkReminders, refetch, autoRefresh]);
 
   // Auto-create after-party event if has_after_party is enabled but event doesn't exist
   // Use ref to prevent re-creation loop (event object changes on every refetch)
@@ -290,9 +280,7 @@ export function DayOfPage() {
     return result;
   };
 
-  // Heroic Entry handlers
   const handleDismissArrival = async (arrivalId: number) => {
-    setHeroicArrival(null);
     try {
       await api.updateArrival(arrivalId, { status: 'dismissed' });
       await refetch();
@@ -380,16 +368,6 @@ export function DayOfPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 p-4">
-      {/* Heroic Entry full-screen overlay */}
-      {heroicArrival && (
-        <HeroicEntry
-          arrival={heroicArrival}
-          drinkOrders={drinkOrders}
-          onDismiss={handleDismissArrival}
-          onConfirmOrder={handleConfirmDrinkOrder}
-        />
-      )}
-
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button variant="outline" size="sm" onClick={() => navigate(`/events/${event.id}`)}>← 幹事ページ</Button>
