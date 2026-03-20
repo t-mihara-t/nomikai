@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS events (
   has_after_party INTEGER NOT NULL DEFAULT 0,
   paypay_id TEXT,
   kampa_amount INTEGER NOT NULL DEFAULT 0,
+  pool_amount INTEGER NOT NULL DEFAULT 0,
   parent_event_id INTEGER,
   auto_delete_at TEXT,
   is_active INTEGER NOT NULL DEFAULT 1,

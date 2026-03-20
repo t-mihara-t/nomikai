@@ -356,7 +356,8 @@ export function DayOfPage() {
       lines.push(``);
 
       if (hasSurplus) {
-        lines.push(`※システム規定により、端数（100円未満）を次回の還元基金として積み立て処理しました。`);
+        const surplus = totalCollected - ev.total_amount!;
+        lines.push(`※端数（500円刻み）により${surplus.toLocaleString()}円を次回プールとして積み立て処理しました。`);
         lines.push(``);
       }
     }

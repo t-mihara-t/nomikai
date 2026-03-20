@@ -1,7 +1,7 @@
 import type { CalculateResult, Participant, ParticipantBreakdown } from '@/types';
 
-function roundTo100(value: number, mode: 'ceil' | 'floor'): number {
-  return mode === 'ceil' ? Math.ceil(value / 100) * 100 : Math.floor(value / 100) * 100;
+function roundTo500(value: number, mode: 'ceil' | 'floor'): number {
+  return mode === 'ceil' ? Math.ceil(value / 500) * 500 : Math.floor(value / 500) * 500;
 }
 
 export function calculateSplit(
@@ -47,7 +47,7 @@ export function calculateSplit(
     const rawBeforeDiscount = basePerWeight * pw.multiplier * pw.drinkFactor;
     const discountAmount = rawBeforeDiscount * pw.discountRate;
     const rawFinal = rawBeforeDiscount - discountAmount;
-    const finalAmount = roundTo100(rawFinal, rounding);
+    const finalAmount = roundTo500(rawFinal, rounding);
 
     breakdowns.push({
       participant_id: pw.id,
