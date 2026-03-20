@@ -307,15 +307,15 @@ export const api = {
     });
   },
 
-  // Pool (余剰金管理)
-  getPool(eventId: number): Promise<{ pool_amount: number; points_balance: number; total_surplus: number }> {
-    return fetchJson(`${API_BASE}/events/${eventId}/pool`);
-  },
-
-  poolSurplus(eventId: number, amount: number): Promise<{ pool_amount: number; pooled: number }> {
-    return fetchJson(`${API_BASE}/events/${eventId}/pool`, {
+  // Pool surplus as earned points (余剰金をポイントとして記録)
+  poolSurplus(eventId: number, amount: number): Promise<RecruitPointRecord> {
+    return fetchJson(`${API_BASE}/events/${eventId}/points`, {
       method: 'POST',
-      body: JSON.stringify({ amount }),
+      body: JSON.stringify({
+        type: 'earned',
+        amount,
+        description: `精算余剰金プール（500円刻み端数）`,
+      }),
     });
   },
 

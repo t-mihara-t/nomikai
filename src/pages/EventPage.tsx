@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
-import type { ParticipantResponse, CustomVenueLink } from '@/types';
+import type { ParticipantResponse, CustomVenueLink, PointsSummary } from '@/types';
 
 function formatDateTime(dt: string) {
   const d = new Date(dt);
@@ -48,12 +48,12 @@ export function EventPage() {
   const [linkingLine, setLinkingLine] = useState(false);
   const [unlinkingLine, setUnlinkingLine] = useState(false);
 
-  // Pool/surplus display
-  const [poolInfo, setPoolInfo] = useState<{ pool_amount: number; points_balance: number; total_surplus: number } | null>(null);
+  // Points display (same source as Dashboard)
+  const [points, setPoints] = useState<PointsSummary | null>(null);
 
   useEffect(() => {
     if (eventId) {
-      api.getPool(eventId).then(setPoolInfo).catch(() => {});
+      api.getPoints(eventId).then(setPoints).catch(() => {});
     }
   }, [eventId]);
 
@@ -559,26 +559,26 @@ export function EventPage() {
         </CardContent>
       </Card>
 
-      {/* 余剰金・ポイント残高 */}
-      {poolInfo && (
+      {/* ポイント残高（ダッシュボードと同一データソース） */}
+      {points && (
         <Card>
-          <CardHeader><CardTitle className="text-lg">余剰金・ポイント残高</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-lg">ポイント残高</CardTitle></CardHeader>
           <CardContent className="space-y-2">
             <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="rounded-lg bg-amber-50 p-2">
-                <p className="text-xs text-muted-foreground">余剰金プール</p>
-                <p className="text-lg font-bold text-amber-700">{poolInfo.pool_amount.toLocaleString()}円</p>
-              </div>
-              <div className="rounded-lg bg-purple-50 p-2">
-                <p className="text-xs text-muted-foreground">ポイント残高</p>
-                <p className="text-lg font-bold text-purple-700">{poolInfo.points_balance.toLocaleString()}pt</p>
-              </div>
               <div className="rounded-lg bg-green-50 p-2">
-                <p className="text-xs text-muted-foreground">合計</p>
-                <p className="text-lg font-bold text-green-700">{poolInfo.total_surplus.toLocaleString()}円</p>
+                <p className="text-xs text-muted-foreground">累計獲得</p>
+                <p className="text-lg font-bold text-green-600">{points.total_earned.toLocaleString()}<span className="text-xs">pt</span></p>
+              </div>
+              <div className="rounded-lg bg-blue-50 p-2">
+                <p className="text-xs text-muted-foreground">利用済み</p>
+                <p className="text-lg font-bold text-blue-600">{points.total_contributed.toLocaleString()}<span className="text-xs">pt</span></p>
+              </div>
+              <div className="rounded-lg bg-amber-50 p-2">
+                <p className="text-xs text-muted-foreground">残高</p>
+                <p className="text-lg font-bold text-amber-600">{points.available_balance.toLocaleString()}<span className="text-xs">pt</span></p>
               </div>
             </div>
-            <p className="text-xs text-muted-foreground">次回の精算時に繰越金等として利用できます</p>
+            <p className="text-xs text-muted-foreground">次回の精算時に繰越金等・ポイント利用として使えます</p>
           </CardContent>
         </Card>
       )}
