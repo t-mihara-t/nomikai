@@ -24,6 +24,7 @@ interface AdminPanelProps {
     apply_discount?: boolean;
   }) => Promise<CalculateResult | null>;
   loading?: boolean;
+  onPoolUpdated?: () => void;
 }
 
 export function AdminPanel({
@@ -34,6 +35,7 @@ export function AdminPanel({
   currentKampaAmount,
   onCalculate,
   loading,
+  onPoolUpdated,
 }: AdminPanelProps) {
   const [totalAmount, setTotalAmount] = useState(currentTotalAmount?.toString() || '');
   const [kampaAmount, setKampaAmount] = useState(currentKampaAmount?.toString() || '0');
@@ -232,12 +234,41 @@ export function AdminPanel({
       </Card>
 
       {preview && <BreakdownCard result={preview} totalAmount={parseInt(totalAmount, 10)} label="プレビュー（未確定）" labelColor="text-muted-foreground" />}
-      {confirmed && <BreakdownCard result={confirmed} totalAmount={parseInt(totalAmount, 10)} label="確定済み" labelColor="text-green-600" />}
+      {confirmed && (
+        <BreakdownCard
+          result={confirmed}
+          totalAmount={parseInt(totalAmount, 10)}
+          label="確定済み"
+          labelColor="text-green-600"
+          eventId={eventId}
+          onPoolUpdated={onPoolUpdated}
+        />
+      )}
     </div>
   );
 }
 
-function BreakdownCard({ result, totalAmount, label, labelColor }: { result: CalculateResult; totalAmount: number; label: string; labelColor: string }) {
+function BreakdownCard({ result, totalAmount, label, labelColor, eventId, onPoolUpdated }: {
+  result: CalculateResult; totalAmount: number; label: string; labelColor: string;
+  eventId?: number; onPoolUpdated?: () => void;
+}) {
+  const [pooling, setPooling] = useState(false);
+  const [pooled, setPooled] = useState(false);
+
+  const handlePoolSurplus = async () => {
+    if (!eventId || result.difference === 0) return;
+    setPooling(true);
+    try {
+      await api.poolSurplus(eventId, result.difference);
+      setPooled(true);
+      onPoolUpdated?.();
+    } catch {
+      // ignore
+    } finally {
+      setPooling(false);
+    }
+  };
+
   return (
     <div className="space-y-2">
       <p className={`text-sm font-medium ${labelColor}`}>{label}</p>
@@ -274,12 +305,24 @@ function BreakdownCard({ result, totalAmount, label, labelColor }: { result: Cal
           </div>
 
           {result.difference !== 0 && (
-            <div className="rounded-lg bg-muted p-2">
-              <p className="text-sm text-muted-foreground">
+            <div className="rounded-lg border-2 border-amber-300 bg-amber-50 p-3 space-y-2">
+              <p className="text-sm font-medium">
                 {result.difference > 0
-                  ? `端数調整: +${result.difference.toLocaleString()}円（多め徴収）`
-                  : `端数調整: ${result.difference.toLocaleString()}円（不足分は幹事負担）`}
+                  ? `余剰金: +${result.difference.toLocaleString()}円（多め徴収）`
+                  : `不足額: ${result.difference.toLocaleString()}円（幹事負担）`}
               </p>
+              {eventId && result.difference > 0 && !pooled && (
+                <Button
+                  onClick={handlePoolSurplus}
+                  disabled={pooling}
+                  className="w-full min-h-[48px] bg-amber-600 hover:bg-amber-700 text-white"
+                >
+                  {pooling ? 'プール中...' : `${result.difference.toLocaleString()}円を残高にプールする`}
+                </Button>
+              )}
+              {pooled && (
+                <p className="text-sm text-green-700 font-medium">プール済み</p>
+              )}
             </div>
           )}
 
