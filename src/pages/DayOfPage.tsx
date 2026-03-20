@@ -580,6 +580,7 @@ export function DayOfPage() {
             currentKampaAmount={event.kampa_amount}
             onCalculate={handleCalculate}
             loading={calcLoading}
+            onPoolUpdated={refetch}
           />
 
           {/* 精算テキスト生成 */}
@@ -654,6 +655,7 @@ export function DayOfPage() {
                 currentKampaAmount={afterPartyEvent.kampa_amount}
                 onCalculate={handleAPCalculate}
                 loading={calcLoading}
+                onPoolUpdated={refetch}
               />
 
               {afterPartyEvent.total_amount && afterPartyEvent.participants.some((p) => p.amount_to_pay != null) && (

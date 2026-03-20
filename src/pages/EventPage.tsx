@@ -560,7 +560,7 @@ export function EventPage() {
       </Card>
 
       {/* 余剰金・ポイント残高 */}
-      {poolInfo && poolInfo.total_surplus !== 0 && (
+      {poolInfo && (
         <Card>
           <CardHeader><CardTitle className="text-lg">余剰金・ポイント残高</CardTitle></CardHeader>
           <CardContent className="space-y-2">
