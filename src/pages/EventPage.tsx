@@ -84,6 +84,13 @@ export function EventPage() {
   const allResponses: ParticipantResponse[] = event.participant_responses || [];
   const candidateDates = event.candidate_dates || [];
 
+  // Estimated point earnings (same as Dashboard)
+  const attending = event.participants.filter((p) => p.status === 'attending');
+  const totalToPay = attending.reduce((sum, p) => sum + (p.amount_to_pay || 0), 0);
+  const hotpepperPoints = attending.length * 50;
+  const roundingFee = event.total_amount ? (totalToPay - event.total_amount) : 0;
+  const estimatedPayPayPoints = Math.floor(totalToPay * 0.005);
+
   const handleCopyLink = async () => {
     await navigator.clipboard.writeText(participantUrl);
     setCopied(true);
@@ -559,25 +566,78 @@ export function EventPage() {
         </CardContent>
       </Card>
 
-      {/* ポイント残高（ダッシュボードと同一データソース） */}
+      {/* 推定ポイント（ダッシュボードと同一表示） */}
+      <Card className="border-2 border-amber-300 bg-gradient-to-r from-amber-50 to-yellow-50">
+        <CardHeader>
+          <CardTitle className="text-lg">この飲み会で得た推定ポイント</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-3 gap-3 text-center">
+            <div className="rounded-lg bg-white/70 p-3 shadow-sm">
+              <p className="text-xs text-muted-foreground">Hotpepper予約P</p>
+              <p className="text-2xl font-bold text-orange-600">{hotpepperPoints}</p>
+              <p className="text-xs text-muted-foreground">pt</p>
+            </div>
+            <div className="rounded-lg bg-white/70 p-3 shadow-sm">
+              <p className="text-xs text-muted-foreground">端数積立金</p>
+              <p className="text-2xl font-bold text-green-600">{roundingFee > 0 ? roundingFee : 0}</p>
+              <p className="text-xs text-muted-foreground">円</p>
+            </div>
+            <div className="rounded-lg bg-white/70 p-3 shadow-sm">
+              <p className="text-xs text-muted-foreground">PayPay還元(推定)</p>
+              <p className="text-2xl font-bold text-red-600">{estimatedPayPayPoints}</p>
+              <p className="text-xs text-muted-foreground">pt</p>
+            </div>
+          </div>
+          <div className="rounded-lg bg-gradient-to-r from-amber-100 to-yellow-100 p-4 text-center">
+            <p className="text-xs text-muted-foreground">合計推定ポイント</p>
+            <p className="text-3xl font-bold text-amber-700">
+              {hotpepperPoints + Math.max(roundingFee, 0) + estimatedPayPayPoints}
+              <span className="text-base ml-1">pt相当</span>
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ポイント台帳 */}
       {points && (
         <Card>
-          <CardHeader><CardTitle className="text-lg">ポイント残高</CardTitle></CardHeader>
-          <CardContent className="space-y-2">
-            <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="rounded-lg bg-green-50 p-2">
+          <CardHeader><CardTitle className="text-lg">ポイント台帳</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div className="rounded-lg bg-green-50 p-3">
                 <p className="text-xs text-muted-foreground">累計獲得</p>
-                <p className="text-lg font-bold text-green-600">{points.total_earned.toLocaleString()}<span className="text-xs">pt</span></p>
+                <p className="text-xl font-bold text-green-600">{points.total_earned.toLocaleString()}<span className="text-xs">pt</span></p>
               </div>
-              <div className="rounded-lg bg-blue-50 p-2">
+              <div className="rounded-lg bg-blue-50 p-3">
                 <p className="text-xs text-muted-foreground">利用済み</p>
-                <p className="text-lg font-bold text-blue-600">{points.total_contributed.toLocaleString()}<span className="text-xs">pt</span></p>
+                <p className="text-xl font-bold text-blue-600">{points.total_contributed.toLocaleString()}<span className="text-xs">pt</span></p>
               </div>
-              <div className="rounded-lg bg-amber-50 p-2">
+              <div className="rounded-lg bg-amber-50 p-3">
                 <p className="text-xs text-muted-foreground">残高</p>
-                <p className="text-lg font-bold text-amber-600">{points.available_balance.toLocaleString()}<span className="text-xs">pt</span></p>
+                <p className="text-xl font-bold text-amber-600">{points.available_balance.toLocaleString()}<span className="text-xs">pt</span></p>
               </div>
             </div>
+            {(points.records || []).length > 0 && (
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-muted-foreground">取引履歴</p>
+                <div className="max-h-48 overflow-auto space-y-1">
+                  {(points.records || []).map((r) => (
+                    <div key={r.id} className="flex items-center justify-between text-xs border-b border-border py-1.5">
+                      <div className="flex items-center gap-2">
+                        <Badge variant={r.type === 'earned' ? 'default' : 'secondary'} className="text-xs">
+                          {r.type === 'earned' ? '獲得' : '利用'}
+                        </Badge>
+                        <span className="text-muted-foreground">{r.description}</span>
+                      </div>
+                      <span className={`font-medium ${r.type === 'earned' ? 'text-green-600' : 'text-blue-600'}`}>
+                        {r.type === 'earned' ? '+' : '-'}{r.amount}pt
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             <p className="text-xs text-muted-foreground">次回の精算時に繰越金等・ポイント利用として使えます</p>
           </CardContent>
         </Card>
