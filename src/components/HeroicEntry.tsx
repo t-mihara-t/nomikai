@@ -88,15 +88,18 @@ export function HeroicEntry({ arrival, drinkOrders, onDismiss, onConfirmOrder }:
 
           {/* ETA countdown */}
           {arrival.eta_minutes != null && arrival.status === 'approaching' && (
-            <div className="heroic-eta">
+            <div className="heroic-eta space-y-2">
+              <span className="inline-block bg-gradient-to-r from-orange-500 to-red-500 text-white text-lg font-bold px-6 py-3 rounded-full">
+                あと約 {arrival.eta_minutes} 分で到着
+              </span>
               {remaining != null && remaining > 0 ? (
-                <span className="inline-block bg-gradient-to-r from-orange-500 to-red-500 text-white text-lg font-bold px-6 py-3 rounded-full font-mono">
-                  あと {Math.floor(remaining / 60)}:{Math.floor(remaining % 60).toString().padStart(2, '0')} で到着
-                </span>
+                <p className="text-white/80 text-base font-mono">
+                  残り {Math.floor(remaining / 60)}:{Math.floor(remaining % 60).toString().padStart(2, '0')}
+                </p>
               ) : (
-                <span className="inline-block bg-gradient-to-r from-green-500 to-emerald-500 text-white text-lg font-bold px-6 py-3 rounded-full heroic-pulse">
+                <p className="text-green-300 text-base font-bold heroic-pulse">
                   到着予定時刻
-                </span>
+                </p>
               )}
             </div>
           )}
