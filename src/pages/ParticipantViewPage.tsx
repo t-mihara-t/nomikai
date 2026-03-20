@@ -103,6 +103,7 @@ export function ParticipantViewPage() {
         <h1 className="text-2xl font-bold">{event.name}</h1>
         <p className="text-sm text-muted-foreground">{event.date}</p>
         <Badge variant="secondary">{participant.name}さん</Badge>
+        {event.has_after_party && <Badge variant="outline">二次会あり</Badge>}
       </div>
 
       {/* System status card */}
@@ -112,11 +113,21 @@ export function ParticipantViewPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Attendance status */}
-          <div className="rounded-lg bg-muted p-3">
-            <p className="text-sm font-medium">出欠ステータス</p>
-            <p className="text-lg font-bold mt-1">
-              {participant.status === 'attending' ? '参加' : participant.status === 'absent' ? '不参加' : '保留'}
-            </p>
+          <div className="rounded-lg bg-muted p-3 space-y-2">
+            <div>
+              <p className="text-sm font-medium">一次会</p>
+              <p className="text-lg font-bold mt-1">
+                {participant.status === 'attending' ? '参加' : participant.status === 'absent' ? '不参加' : '保留'}
+              </p>
+            </div>
+            {event.has_after_party && (
+              <div className="border-t border-border pt-2">
+                <p className="text-sm font-medium">二次会</p>
+                <p className="text-lg font-bold mt-1">
+                  {participant.join_after_party ? '参加' : '不参加'}
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Payment info - only shown to this participant */}
@@ -168,11 +179,31 @@ export function ParticipantViewPage() {
           <CardHeader>
             <CardTitle className="text-lg">会場情報</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent className="space-y-3">
             {event.venue_selections
               .filter((v) => v.venue_type === 'primary')
               .map((v) => (
                 <div key={v.id} className="space-y-1">
+                  <Badge variant="secondary" className="text-xs">一次会</Badge>
+                  <p className="font-medium text-sm">{v.restaurant.name}</p>
+                  <p className="text-xs text-muted-foreground">{v.restaurant.address}</p>
+                  {v.restaurant.lat && v.restaurant.lng && (
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${v.restaurant.lat},${v.restaurant.lng}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-primary hover:underline"
+                    >
+                      Google Mapで開く
+                    </a>
+                  )}
+                </div>
+              ))}
+            {event.has_after_party && event.venue_selections
+              .filter((v) => v.venue_type === 'after_party')
+              .map((v) => (
+                <div key={v.id} className="space-y-1">
+                  <Badge variant="secondary" className="text-xs">二次会</Badge>
                   <p className="font-medium text-sm">{v.restaurant.name}</p>
                   <p className="text-xs text-muted-foreground">{v.restaurant.address}</p>
                   {v.restaurant.lat && v.restaurant.lng && (
@@ -199,7 +230,7 @@ export function ParticipantViewPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             {event.custom_venue_links
-              .filter((l) => l.venue_type === 'primary')
+              .filter((l) => l.venue_type === 'primary' || (event.has_after_party && l.venue_type === 'after_party'))
               .map((link) => {
                 const coords = extractCoordsFromUrl(link.url);
                 const embedUrl = coords
@@ -207,7 +238,12 @@ export function ParticipantViewPage() {
                   : null;
                 return (
                   <div key={link.id} className="rounded-lg border border-border p-3 space-y-2">
-                    <p className="text-sm font-medium">{link.label}</p>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary" className="text-xs shrink-0">
+                        {link.venue_type === 'primary' ? '一次会' : '二次会'}
+                      </Badge>
+                      <span className="text-sm font-medium">{link.label}</span>
+                    </div>
                     <a
                       href={link.url}
                       target="_blank"

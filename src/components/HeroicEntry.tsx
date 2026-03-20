@@ -9,9 +9,31 @@ interface HeroicEntryProps {
   onConfirmOrder: (orderId: number) => void;
 }
 
+function useCountdown(createdAt: string, etaMinutes: number | null) {
+  const [remaining, setRemaining] = useState<number | null>(() => {
+    if (etaMinutes == null) return null;
+    const elapsed = (Date.now() - new Date(createdAt).getTime()) / 1000;
+    return Math.max(0, etaMinutes * 60 - elapsed);
+  });
+
+  useEffect(() => {
+    if (etaMinutes == null || remaining == null || remaining <= 0) return;
+    const timer = setInterval(() => {
+      const elapsed = (Date.now() - new Date(createdAt).getTime()) / 1000;
+      const r = Math.max(0, etaMinutes * 60 - elapsed);
+      setRemaining(r);
+      if (r <= 0) clearInterval(timer);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [createdAt, etaMinutes, remaining]);
+
+  return remaining;
+}
+
 export function HeroicEntry({ arrival, drinkOrders, onDismiss, onConfirmOrder }: HeroicEntryProps) {
   const [phase, setPhase] = useState<'enter' | 'show' | 'exit'>('enter');
   const [visible, setVisible] = useState(true);
+  const remaining = useCountdown(arrival.created_at, arrival.eta_minutes);
 
   useEffect(() => {
     // Play arrival sound effect
@@ -64,12 +86,18 @@ export function HeroicEntry({ arrival, drinkOrders, onDismiss, onConfirmOrder }:
             </p>
           </div>
 
-          {/* ETA */}
+          {/* ETA countdown */}
           {arrival.eta_minutes != null && arrival.status === 'approaching' && (
             <div className="heroic-eta">
-              <span className="inline-block bg-gradient-to-r from-orange-500 to-red-500 text-white text-lg font-bold px-6 py-3 rounded-full">
-                あと約 {arrival.eta_minutes} 分で到着
-              </span>
+              {remaining != null && remaining > 0 ? (
+                <span className="inline-block bg-gradient-to-r from-orange-500 to-red-500 text-white text-lg font-bold px-6 py-3 rounded-full font-mono">
+                  あと {Math.floor(remaining / 60)}:{Math.floor(remaining % 60).toString().padStart(2, '0')} で到着
+                </span>
+              ) : (
+                <span className="inline-block bg-gradient-to-r from-green-500 to-emerald-500 text-white text-lg font-bold px-6 py-3 rounded-full heroic-pulse">
+                  到着予定時刻
+                </span>
+              )}
             </div>
           )}
 
