@@ -307,4 +307,16 @@ export const api = {
     });
   },
 
+  // Pool (余剰金管理)
+  getPool(eventId: number): Promise<{ pool_amount: number; points_balance: number; total_surplus: number }> {
+    return fetchJson(`${API_BASE}/events/${eventId}/pool`);
+  },
+
+  poolSurplus(eventId: number, amount: number): Promise<{ pool_amount: number; pooled: number }> {
+    return fetchJson(`${API_BASE}/events/${eventId}/pool`, {
+      method: 'POST',
+      body: JSON.stringify({ amount }),
+    });
+  },
+
 };

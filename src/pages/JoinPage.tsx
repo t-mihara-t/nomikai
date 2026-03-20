@@ -432,7 +432,7 @@ export function JoinPage() {
               const apAttending = apResponses.filter((r) => r.after_party_status === 'attending').length;
               const apPending = apResponses.filter((r) => r.after_party_status === 'pending').length;
               const apAbsent = apResponses.filter((r) => r.after_party_status === 'absent').length;
-              const showAfterParty = event.has_after_party && apResponses.length > 0;
+              const showAfterParty = event.has_after_party;
 
               return (
                 <div key={cd.id} className="space-y-2">
@@ -468,16 +468,21 @@ export function JoinPage() {
                           <Badge variant="default" className="text-[10px] px-1.5">{apAttending}</Badge>
                           <Badge variant="warning" className="text-[10px] px-1.5">{apPending}</Badge>
                           <Badge variant="secondary" className="text-[10px] px-1.5">{apAbsent}</Badge>
+                          {event.participants.length - apResponses.length > 0 && (
+                            <Badge variant="outline" className="text-[10px] px-1.5">{event.participants.length - apResponses.length}未</Badge>
+                          )}
                         </div>
                       </div>
                       <div className="flex flex-wrap gap-1">
                         {event.participants.map((p) => {
                           const resp = getParticipantResponse(p.id, cd.id);
-                          if (!resp?.after_party_status) return null;
-                          const variant = resp.after_party_status === 'attending' ? 'default'
-                            : resp.after_party_status === 'pending' ? 'warning' : 'secondary';
-                          const statusText = resp.after_party_status === 'attending' ? '参加'
-                            : resp.after_party_status === 'pending' ? '保留' : '不参加';
+                          const apStatus = resp?.after_party_status;
+                          const variant = apStatus === 'attending' ? 'default'
+                            : apStatus === 'pending' ? 'warning'
+                            : apStatus === 'absent' ? 'secondary' : 'outline';
+                          const statusText = apStatus === 'attending' ? '参加'
+                            : apStatus === 'pending' ? '保留'
+                            : apStatus === 'absent' ? '不参加' : '未回答';
                           return (
                             <Badge key={p.id} variant={variant} className="text-[10px]">{p.name}: {statusText}</Badge>
                           );

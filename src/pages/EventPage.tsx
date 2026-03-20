@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEventDetail } from '@/hooks/useEventData';
 import { api } from '@/lib/api';
@@ -47,6 +47,15 @@ export function EventPage() {
   // LINE integration
   const [linkingLine, setLinkingLine] = useState(false);
   const [unlinkingLine, setUnlinkingLine] = useState(false);
+
+  // Pool/surplus display
+  const [poolInfo, setPoolInfo] = useState<{ pool_amount: number; points_balance: number; total_surplus: number } | null>(null);
+
+  useEffect(() => {
+    if (eventId) {
+      api.getPool(eventId).then(setPoolInfo).catch(() => {});
+    }
+  }, [eventId]);
 
   // Venue links
   const [venueLabel, setVenueLabel] = useState('');
@@ -549,6 +558,30 @@ export function EventPage() {
           </p>
         </CardContent>
       </Card>
+
+      {/* 余剰金・ポイント残高 */}
+      {poolInfo && poolInfo.total_surplus !== 0 && (
+        <Card>
+          <CardHeader><CardTitle className="text-lg">余剰金・ポイント残高</CardTitle></CardHeader>
+          <CardContent className="space-y-2">
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="rounded-lg bg-amber-50 p-2">
+                <p className="text-xs text-muted-foreground">余剰金プール</p>
+                <p className="text-lg font-bold text-amber-700">{poolInfo.pool_amount.toLocaleString()}円</p>
+              </div>
+              <div className="rounded-lg bg-purple-50 p-2">
+                <p className="text-xs text-muted-foreground">ポイント残高</p>
+                <p className="text-lg font-bold text-purple-700">{poolInfo.points_balance.toLocaleString()}pt</p>
+              </div>
+              <div className="rounded-lg bg-green-50 p-2">
+                <p className="text-xs text-muted-foreground">合計</p>
+                <p className="text-lg font-bold text-green-700">{poolInfo.total_surplus.toLocaleString()}円</p>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">次回の精算時に繰越金等として利用できます</p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* 当日ページへのリンク */}
       <Card>
