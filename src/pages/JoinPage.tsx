@@ -67,6 +67,51 @@ function VenueCard({ shop, label }: { shop: Restaurant; label?: string }) {
   );
 }
 
+/**
+ * Extract lat/lng from various Google Maps URL formats.
+ */
+function extractCoordsFromUrl(url: string): { lat: number; lng: number } | null {
+  // Format: /@35.6812362,139.7671248
+  const atMatch = url.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+  if (atMatch) return { lat: parseFloat(atMatch[1]), lng: parseFloat(atMatch[2]) };
+  // Format: ?q=35.6812362,139.7671248 or &query=35.6812362,139.7671248
+  const qMatch = url.match(/[?&](?:q|query)=(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+  if (qMatch) return { lat: parseFloat(qMatch[1]), lng: parseFloat(qMatch[2]) };
+  // Format: /place/35.6812362,139.7671248
+  const placeMatch = url.match(/\/place\/(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+  if (placeMatch) return { lat: parseFloat(placeMatch[1]), lng: parseFloat(placeMatch[2]) };
+  return null;
+}
+
+function VenueLinkCard({ label, url, venueType }: { label: string; url: string; venueType: string }) {
+  const coords = extractCoordsFromUrl(url);
+  const embedUrl = coords
+    ? `https://www.openstreetmap.org/export/embed.html?bbox=${coords.lng - 0.005},${coords.lat - 0.003},${coords.lng + 0.005},${coords.lat + 0.003}&layer=mapnik&marker=${coords.lat},${coords.lng}`
+    : null;
+
+  return (
+    <div className="rounded-lg border border-border p-3 space-y-2">
+      <div className="flex items-center gap-2">
+        <Badge variant="secondary" className="text-xs shrink-0">
+          {venueType === 'primary' ? '一次会' : '二次会'}
+        </Badge>
+        <span className="text-sm font-medium">{label}</span>
+      </div>
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-xs text-primary hover:underline break-all"
+      >
+        Google Mapで開く
+      </a>
+      {embedUrl && (
+        <iframe src={embedUrl} className="w-full h-40 rounded-md border border-border" title={`${label}の地図`} />
+      )}
+    </div>
+  );
+}
+
 function StatusButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
     <Button type="button" variant={active ? 'default' : 'outline'} size="sm" className="text-xs flex-1" onClick={onClick}>
@@ -345,25 +390,18 @@ export function JoinPage() {
         </Card>
       )}
 
-      {/* カスタム場所リンク */}
+      {/* カスタム場所リンク（地図埋め込み付き） */}
       {(event.custom_venue_links || []).length > 0 && (
         <Card>
-          <CardHeader><CardTitle className="text-lg">場所リンク</CardTitle></CardHeader>
-          <CardContent className="space-y-2">
+          <CardHeader><CardTitle className="text-lg">会場の地図</CardTitle></CardHeader>
+          <CardContent className="space-y-3">
             {(event.custom_venue_links || []).map((link) => (
-              <div key={link.id} className="flex items-center gap-2 rounded-lg border border-border p-2">
-                <Badge variant="secondary" className="text-xs shrink-0">
-                  {link.venue_type === 'primary' ? '一次会' : '二次会'}
-                </Badge>
-                <a
-                  href={link.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-primary hover:underline truncate"
-                >
-                  {link.label}
-                </a>
-              </div>
+              <VenueLinkCard
+                key={link.id}
+                label={link.label}
+                url={link.url}
+                venueType={link.venue_type}
+              />
             ))}
           </CardContent>
         </Card>

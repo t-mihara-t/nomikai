@@ -6,6 +6,16 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type { Participant } from '@/types';
 
+function extractCoordsFromUrl(url: string): { lat: number; lng: number } | null {
+  const atMatch = url.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+  if (atMatch) return { lat: parseFloat(atMatch[1]), lng: parseFloat(atMatch[2]) };
+  const qMatch = url.match(/[?&](?:q|query)=(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+  if (qMatch) return { lat: parseFloat(qMatch[1]), lng: parseFloat(qMatch[2]) };
+  const placeMatch = url.match(/\/place\/(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+  if (placeMatch) return { lat: parseFloat(placeMatch[1]), lng: parseFloat(placeMatch[2]) };
+  return null;
+}
+
 /**
  * Anonymous participant view page.
  * Each participant sees ONLY their own payment status and system instructions.
@@ -181,23 +191,37 @@ export function ParticipantViewPage() {
         </Card>
       )}
 
-      {/* Custom venue links */}
+      {/* Custom venue links with embedded maps */}
       {event.custom_venue_links && event.custom_venue_links.length > 0 && (
         <Card>
-          <CardContent className="p-4 space-y-2">
+          <CardHeader>
+            <CardTitle className="text-lg">会場の地図</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
             {event.custom_venue_links
               .filter((l) => l.venue_type === 'primary')
-              .map((link) => (
-                <a
-                  key={link.id}
-                  href={link.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-sm text-primary hover:underline"
-                >
-                  {link.label}
-                </a>
-              ))}
+              .map((link) => {
+                const coords = extractCoordsFromUrl(link.url);
+                const embedUrl = coords
+                  ? `https://www.openstreetmap.org/export/embed.html?bbox=${coords.lng - 0.005},${coords.lat - 0.003},${coords.lng + 0.005},${coords.lat + 0.003}&layer=mapnik&marker=${coords.lat},${coords.lng}`
+                  : null;
+                return (
+                  <div key={link.id} className="rounded-lg border border-border p-3 space-y-2">
+                    <p className="text-sm font-medium">{link.label}</p>
+                    <a
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-primary hover:underline"
+                    >
+                      Google Mapで開く
+                    </a>
+                    {embedUrl && (
+                      <iframe src={embedUrl} className="w-full h-40 rounded-md border border-border" title={`${link.label}の地図`} />
+                    )}
+                  </div>
+                );
+              })}
           </CardContent>
         </Card>
       )}
