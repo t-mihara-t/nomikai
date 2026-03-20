@@ -427,6 +427,13 @@ export function JoinPage() {
               const pendingCount = dateResponses.filter((r) => r.status === 'pending').length;
               const absent = dateResponses.filter((r) => r.status === 'absent').length;
               const unanswered = event.participants.length - dateResponses.length;
+
+              const apResponses = dateResponses.filter((r) => r.after_party_status);
+              const apAttending = apResponses.filter((r) => r.after_party_status === 'attending').length;
+              const apPending = apResponses.filter((r) => r.after_party_status === 'pending').length;
+              const apAbsent = apResponses.filter((r) => r.after_party_status === 'absent').length;
+              const showAfterParty = event.has_after_party && apResponses.length > 0;
+
               return (
                 <div key={cd.id} className="space-y-2">
                   <div className="flex items-center justify-between">
@@ -452,6 +459,32 @@ export function JoinPage() {
                       );
                     })}
                   </div>
+
+                  {showAfterParty && (
+                    <div className="space-y-1 mt-2 pl-2 border-l-2 border-amber-300">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-medium text-amber-700">二次会</p>
+                        <div className="flex gap-1 text-xs">
+                          <Badge variant="default" className="text-[10px] px-1.5">{apAttending}</Badge>
+                          <Badge variant="warning" className="text-[10px] px-1.5">{apPending}</Badge>
+                          <Badge variant="secondary" className="text-[10px] px-1.5">{apAbsent}</Badge>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {event.participants.map((p) => {
+                          const resp = getParticipantResponse(p.id, cd.id);
+                          if (!resp?.after_party_status) return null;
+                          const variant = resp.after_party_status === 'attending' ? 'default'
+                            : resp.after_party_status === 'pending' ? 'warning' : 'secondary';
+                          const statusText = resp.after_party_status === 'attending' ? '参加'
+                            : resp.after_party_status === 'pending' ? '保留' : '不参加';
+                          return (
+                            <Badge key={p.id} variant={variant} className="text-[10px]">{p.name}: {statusText}</Badge>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}

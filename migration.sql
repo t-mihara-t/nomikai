@@ -149,3 +149,6 @@ CREATE TABLE IF NOT EXISTS transactions (
 CREATE INDEX IF NOT EXISTS idx_transactions_event_id ON transactions(event_id);
 CREATE INDEX IF NOT EXISTS idx_transactions_user_id ON transactions(user_id);
 CREATE INDEX IF NOT EXISTS idx_transactions_type ON transactions(type);
+
+-- Add pool_amount column to events (500円刻み精算の端数プール)
+ALTER TABLE events ADD COLUMN pool_amount INTEGER NOT NULL DEFAULT 0;

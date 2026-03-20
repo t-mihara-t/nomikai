@@ -14,6 +14,7 @@ export interface Event {
   has_after_party: boolean;
   paypay_id: string | null;
   kampa_amount: number;
+  pool_amount: number;
   parent_event_id: number | null;
   auto_delete_at: string | null;
   is_active: boolean;

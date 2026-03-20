@@ -75,7 +75,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ params, request, env }
     const rawBeforeDiscount = basePerWeight * pw.multiplier * drinkFactor;
     const discountAmount = rawBeforeDiscount * pw.discount_rate;
     const rawFinal = rawBeforeDiscount - discountAmount;
-    const finalAmount = roundTo100(rawFinal, body.rounding);
+    const finalAmount = roundTo500(rawFinal, body.rounding);
 
     breakdowns.push({
       participant_id: pw.id, name: pw.name,
@@ -106,14 +106,26 @@ export const onRequestPost: PagesFunction<Env> = async ({ params, request, env }
 
   await env.DB.batch(batch);
 
+  // Pool the surplus (rounding difference) into the database
+  const surplus = totalCollected - body.total_amount;
+  if (surplus !== 0) {
+    await env.DB.prepare(
+      "INSERT INTO transactions (event_id, type, amount, description) VALUES (?, 'rounding_fee', ?, ?)"
+    ).bind(eventId, surplus, `精算端数プール（500円刻み丸め）: ${surplus >= 0 ? '+' : ''}${surplus}円`).run();
+
+    // Add surplus to kampa_amount for tracking
+    await env.DB.prepare('UPDATE events SET pool_amount = COALESCE(pool_amount, 0) + ? WHERE id = ?')
+      .bind(surplus, eventId).run();
+  }
+
   return Response.json({
     drinker_amount: drinkerAmount, non_drinker_amount: nonDrinkerAmount,
     drinker_count: drinkerCount, non_drinker_count: nonDrinkerCount,
-    total_collected: totalCollected, difference: totalCollected - body.total_amount,
+    total_collected: totalCollected, difference: surplus,
     kampa_amount: kampaAmount, adjusted_total: adjustedTotal, breakdowns,
   });
 };
 
-function roundTo100(value: number, mode: 'ceil' | 'floor'): number {
-  return mode === 'ceil' ? Math.ceil(value / 100) * 100 : Math.floor(value / 100) * 100;
+function roundTo500(value: number, mode: 'ceil' | 'floor'): number {
+  return mode === 'ceil' ? Math.ceil(value / 500) * 500 : Math.floor(value / 500) * 500;
 }

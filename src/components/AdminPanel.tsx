@@ -201,8 +201,8 @@ export function AdminPanel({
           <div className="space-y-2">
             <Label htmlFor="rounding">端数処理</Label>
             <Select id="rounding" value={rounding} onChange={(e) => setRounding(e.target.value as 'ceil' | 'floor')}>
-              <option value="ceil">100円単位で切り上げ</option>
-              <option value="floor">100円単位で切り捨て</option>
+              <option value="ceil">500円単位で切り上げ</option>
+              <option value="floor">500円単位で切り捨て</option>
             </Select>
           </div>
 
