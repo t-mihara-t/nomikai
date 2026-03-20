@@ -53,6 +53,36 @@ function VenueCard({ shop, label }: { shop: Restaurant; label?: string }) {
   );
 }
 
+function ArrivalCountdown({ createdAt, etaMinutes }: { createdAt: string; etaMinutes: number }) {
+  const [remaining, setRemaining] = useState<number>(() => {
+    const elapsed = (Date.now() - new Date(createdAt).getTime()) / 1000;
+    return Math.max(0, etaMinutes * 60 - elapsed);
+  });
+
+  useEffect(() => {
+    if (remaining <= 0) return;
+    const timer = setInterval(() => {
+      const elapsed = (Date.now() - new Date(createdAt).getTime()) / 1000;
+      const r = Math.max(0, etaMinutes * 60 - elapsed);
+      setRemaining(r);
+      if (r <= 0) clearInterval(timer);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [createdAt, etaMinutes, remaining]);
+
+  if (remaining <= 0) {
+    return <p className="text-sm text-green-700 font-bold">到着予定時刻</p>;
+  }
+
+  const mins = Math.floor(remaining / 60);
+  const secs = Math.floor(remaining % 60);
+  return (
+    <p className="text-sm text-amber-700 font-mono">
+      あと <span className="text-lg font-bold">{mins}:{secs.toString().padStart(2, '0')}</span> で到着
+    </p>
+  );
+}
+
 type TabType = 'primary' | 'after_party';
 
 export function DayOfPage() {
@@ -384,9 +414,11 @@ export function DayOfPage() {
             <div key={arrival.id} className="arrival-card-enter flex items-center justify-between rounded-xl border-2 border-amber-400 bg-gradient-to-r from-amber-50 to-orange-50 p-4 gap-3">
               <div className="flex-1 min-w-0">
                 <p className="font-bold text-lg">{arrival.participant_name}</p>
-                <p className="text-sm text-amber-700">
-                  {arrival.eta_minutes != null ? `あと約${arrival.eta_minutes}分で到着` : '向かっています'}
-                </p>
+                {arrival.eta_minutes != null ? (
+                  <ArrivalCountdown createdAt={arrival.created_at} etaMinutes={arrival.eta_minutes} />
+                ) : (
+                  <p className="text-sm text-amber-700">向かっています</p>
+                )}
                 {arrival.message && (
                   <p className="text-sm text-muted-foreground mt-1">「{arrival.message}」</p>
                 )}
